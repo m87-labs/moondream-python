@@ -1,8 +1,6 @@
 # Moondream Python Client Library
 
-Official Python client library for Moondream, a tiny vision language model that can
-analyze images and answer questions about them. This client library provides easy
-access to Moondream's API endpoints for image analysis.
+Official Python client library for Moondream, the world's fastest multi-function VLM. This client can target either (the Moondream Cloud)[https://moondream.ai/cloud] or a (Moondream Server)[https://moondream.ai/server]. Both are free, though the cloud has a limits on the free tier.
 
 ## Features
 
@@ -23,7 +21,7 @@ pip install moondream
 
 ### Cloud
 
-- Get your free API key from [console.moondream.ai](https://console.moondream.ai).
+- Get your free API key from [the Moondream cloud console](https://moondream.ai/c/cloud/api-keys). The free tier currently supports 5,000 requests per day.
 
 ```python
 import moondream as md
@@ -48,20 +46,20 @@ for chunk in model.caption(image, stream=True)["caption"]:
     print(chunk, end="", flush=True)
 ```
 
-### Local Inference
+### Moondream Server (to run locally)
 
-- Install Moondream server from: !ADD LINK TO DOWNLOAD!
+- Install and run [the Moondream server](https://mooondream.ai/moondream-server)
 - Run the local server:
   ```bash
   ./moondream-server
-- Set the `api_url` parameter to the URL of the local server (the default is `http://localhost:8000`)
+- Set the `api_url` parameter to the URL of the local server (the default is `http://localhost:2020`)
 
 ```python
 import moondream as md
 from PIL import Image
 
 # Initialize with local api_url
-model = md.vl(api_url="http://localhost:8000")
+model = md.vl(api_url="http://localhost:2020")
 
 # Load an image
 image = Image.open("path/to/image.jpg")
@@ -88,7 +86,7 @@ for chunk in model.caption(image, stream=True)["caption"]:
 model = md.vl(api_key="your-api-key")
 
 # Local inference
-model = md.vl(api_url="http://localhost:8000")
+model = md.vl(api_url="http://localhost:2020")
 ```
 
 ### Methods
@@ -162,4 +160,4 @@ encoded_image = model.encode_image(image)
 ## Links
 
 - [Website](https://moondream.ai/)
-- [Demo](https://moondream.ai/playground)
+- [Try it out on the free playground](https://moondream.ai/playground)
