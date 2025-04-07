@@ -52,7 +52,7 @@ for chunk in model.caption(image, stream=True)["caption"]:
 - Run the local server:
   ```bash
   ./moondream-server
-- Set the `endpoint` parameter to the URL of the local server (the default is `http://localhost:2020`)
+- Set the `endpoint` parameter to the URL of the local server (the local server default is `http://localhost:2020`)
 
 ```python
 import moondream as md
