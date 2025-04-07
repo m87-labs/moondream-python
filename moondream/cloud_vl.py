@@ -23,11 +23,11 @@ class CloudVL(VLM):
     def __init__(
         self,
         *,
-        api_url: str = "https://api.moondream.ai/v1",
+        endpoint: str = "https://api.moondream.ai/v1",
         api_key: Optional[str] = None,
     ):
         self.api_key = api_key
-        self.api_url = api_url
+        self.endpoint = endpoint
 
     def encode_image(
         self, image: Union[Image.Image, EncodedImage]
@@ -88,7 +88,7 @@ class CloudVL(VLM):
         if self.api_key:
             headers["X-Moondream-Auth"] = self.api_key
         req = urllib.request.Request(
-            f"{self.api_url}/caption",
+            f"{self.endpoint}/caption",
             data=data,
             headers=headers,
         )
@@ -128,7 +128,7 @@ class CloudVL(VLM):
         if self.api_key:
             headers["X-Moondream-Auth"] = self.api_key
         req = urllib.request.Request(
-            f"{self.api_url}/query",
+            f"{self.endpoint}/query",
             data=data,
             headers=headers,
         )
@@ -162,7 +162,7 @@ class CloudVL(VLM):
         if self.api_key:
             headers["X-Moondream-Auth"] = self.api_key
         req = urllib.request.Request(
-            f"{self.api_url}/detect",
+            f"{self.endpoint}/detect",
             data=data,
             headers=headers,
         )
@@ -193,7 +193,7 @@ class CloudVL(VLM):
         if self.api_key:
             headers["X-Moondream-Auth"] = self.api_key
         req = urllib.request.Request(
-            f"{self.api_url}/point",
+            f"{self.endpoint}/point",
             data=data,
             headers=headers,
         )
