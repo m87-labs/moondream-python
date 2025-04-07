@@ -3,7 +3,7 @@ from .cloud_vl import CloudVL
 from .local_vl import LocalVL
 
 
-def vl(api_key: str = None, local: bool = False, **kwargs):
+def vl(api_key: str = None, api_url: str = "https://api.moondream.ai/v1", **kwargs):
     """
     Factory function for creating a visual language model client.
 
@@ -19,11 +19,7 @@ def vl(api_key: str = None, local: bool = False, **kwargs):
     Raises:
         ValueError: If local is False and no API key is provided.
     """
-    if local:
-        return LocalVL(**kwargs)
-    if not api_key:
-        raise ValueError("An API key must be provided for cloud mode.")
-    return CloudVL(api_key=api_key, **kwargs)
+    return CloudVL(api_key=api_key, api_url=api_url, **kwargs)
 
 
 __all__ = ["vl", "__version__"]
