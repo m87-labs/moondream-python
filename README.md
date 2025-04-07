@@ -52,14 +52,14 @@ for chunk in model.caption(image, stream=True)["caption"]:
 - Run the local server:
   ```bash
   ./moondream-server
-- Set the `api_url` parameter to the URL of the local server (the default is `http://localhost:2020`)
+- Set the `endpoint` parameter to the URL of the local server (the default is `http://localhost:2020`)
 
 ```python
 import moondream as md
 from PIL import Image
 
-# Initialize with local api_url
-model = md.vl(api_url="http://localhost:2020")
+# Initialize with local endpoint
+model = md.vl(endpoint="http://localhost:2020")
 
 # Load an image
 image = Image.open("path/to/image.jpg")
@@ -86,7 +86,7 @@ for chunk in model.caption(image, stream=True)["caption"]:
 model = md.vl(api_key="your-api-key")
 
 # Local inference
-model = md.vl(api_url="http://localhost:2020")
+model = md.vl(endpoint="http://localhost:2020")
 ```
 
 ### Methods
