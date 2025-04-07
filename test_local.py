@@ -1,15 +1,3 @@
-#!/usr/bin/env python
-"""
-test_local_client.py
-
-This script tests the moondream Python client in local mode.
-It loads an image from a file path provided as a command-line argument,
-and then calls the caption, query, detect, and point methods, printing their outputs.
-
-Usage:
-    python test_local_client.py /path/to/your/image.jpg
-"""
-
 import sys
 import os
 import moondream as md
@@ -41,7 +29,7 @@ def main(image_path: str):
 
     try:
         print("Starting caption stream")
-        for chunk in client.caption(image, stream=True)["caption"]:
+        for chunk in client.caption(image, length="long", stream=True)["caption"]:
             print(chunk, end="", flush=True)
         print("\n------ done ------\n")
     except Exception as e:
@@ -85,5 +73,5 @@ def main(image_path: str):
 
 
 if __name__ == "__main__":
-    image_path = "/workspace/point_max300_md10_s1201.jpg"
+    image_path = "moondream/assets/how-to-be-a-people-person-1662995088.jpg"
     main(image_path)

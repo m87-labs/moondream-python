@@ -1,22 +1,25 @@
+from typing import Optional
 from .version import __version__
 from .cloud_vl import CloudVL
 
+DEFAULT_API_URL = "https://api.moondream.ai/v1"
 
-def vl(api_key: str = None, api_url: str = "https://api.moondream.ai/v1", **kwargs):
+
+def vl(
+    api_key: Optional[str] = None,
+    api_url: Optional[str] = DEFAULT_API_URL,
+    **kwargs,
+):
     """
     Factory function for creating a visual language model client.
 
     Args:
-        api_key (str): Your API key for the remote (cloud) API. This is required unless local=True.
-        local (bool): If True, returns a client that talks to the locally running server.
-                      If False (default), returns a client that communicates with the cloud API.
-        **kwargs: Additional keyword arguments that are passed to the underlying client.
+        api_key (str): Your API key for the remote (cloud) API.
+        api_url (str): The endpoint which you would like to call. Local is http://localhost:8000 by default.
+        **kwargs.
 
     Returns:
-        An instance of CloudVL (for remote mode) or LocalVL (for local mode).
-
-    Raises:
-        ValueError: If local is False and no API key is provided.
+        An instance of CloudVL.
     """
     return CloudVL(api_key=api_key, api_url=api_url, **kwargs)
 

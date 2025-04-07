@@ -36,13 +36,6 @@ class CloudVL(VLM):
             assert type(image) == Base64EncodedImage
             return image
         try:
-            width, height = image.size
-            max_size = 768
-            scale = max_size / max(width, height)
-            if scale < 1:
-                new_size = (int(width * scale), int(height * scale))
-                image = image.resize(new_size, Image.Resampling.LANCZOS)
-
             if image.mode != "RGB":
                 image = image.convert("RGB")
             buffered = BytesIO()
@@ -74,7 +67,7 @@ class CloudVL(VLM):
     def caption(
         self,
         image: Union[Image.Image, EncodedImage],
-        length: Literal["normal", "short"] = "normal",
+        length: Literal["normal", "short", "long"] = "normal",
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
     ) -> CaptionOutput:
