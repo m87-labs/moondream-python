@@ -31,11 +31,11 @@ def main(image_path: str):
     # Instantiate the client in local mode.
     client = md.vl(
         api_key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlfaWQiOiI3MDI4ODY0Yy01ZmJkLTQ4ZDItYmUyMC0wNjcxOTQwNmRiMTQiLCJpYXQiOjE3NDM5NzkwODF9.1HoCbUW9mGYbrSdM_0iKo8DxXe7xVF1dplKKtlRoasU",
-        local=False,
     )
 
     # Test the caption method.
     try:
+        print("starting caption")
         caption_output = client.caption(image, settings={"max_tokens": 10})
         print("Caption:", caption_output.get("caption"))
     except Exception as e:
@@ -45,32 +45,38 @@ def main(image_path: str):
         print("starting caption stream")
         for chunk in client.caption(image, stream=True)["caption"]:
             print(chunk, end="", flush=True)
-        print("------ done ------")
+        print("\n------ done ------\n")
     except Exception as e:
         print("Caption test failed:", e)
 
     # Test the query method.
     try:
+        print("starting query")
         query_output = client.query(image, "What's in the image?")
         print("Query Answer:", query_output.get("answer"))
+        print("\n------ done ------\n")
     except Exception as e:
         print("Query test failed:", e)
 
     # Test the detect method.
     try:
+        print("starting detect")
         detect_output = client.detect(image, "face")
         print("Detected Objects:", detect_output.get("objects"))
+        print("\n------ done ------\n")
     except Exception as e:
         print("Detect test failed:", e)
 
     # Test the point method.
     try:
+        print("starting point")
         point_output = client.point(image, "person")
         print("Points:", point_output.get("points"))
+        print("\n------ done ------\n")
     except Exception as e:
         print("Point test failed:", e)
 
 
 if __name__ == "__main__":
-    image_path = "/Users/ethanreid/Downloads/how-to-be-a-people-person-1662995088.jpg"
+    image_path = "/workspace/point_max300_md10_s1201.jpg"
     main(image_path)

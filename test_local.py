@@ -68,7 +68,7 @@ def main(image_path: str):
     # Test the detect method.
     try:
         print("Starting output")
-        detect_output = client.detect(image, "face")
+        detect_output = client.detect(image, "item")
         print("Detected Objects:", detect_output.get("objects"))
         print("\n------ done ------\n")
     except Exception as e:
@@ -85,5 +85,5 @@ def main(image_path: str):
 
 
 if __name__ == "__main__":
-    image_path = "/Users/ethanreid/Downloads/how-to-be-a-people-person-1662995088.jpg"
+    image_path = "/workspace/point_max300_md10_s1201.jpg"
     main(image_path)
