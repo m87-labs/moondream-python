@@ -161,3 +161,4 @@ encoded_image = model.encode_image(image)
 
 - [Website](https://moondream.ai/)
 - [Try it out on the free playground](https://moondream.ai/playground)
+- [GitHub](https://github.com/vikhyat/moondream)
