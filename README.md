@@ -1,6 +1,6 @@
 # Moondream Python Client Library
 
-Official Python client library for Moondream, the world's fastest multi-function VLM. This client can target either (the Moondream Cloud)[https://moondream.ai/cloud] or a (Moondream Server)[https://moondream.ai/server]. Both are free, though the cloud has a limits on the free tier.
+Official Python client library for Moondream, a fast multi-function VLM. This client can target either (the Moondream Cloud)[https://moondream.ai/cloud] or a (Moondream Server)[https://moondream.ai/server]. Both are free, though the cloud has a limits on the free tier.
 
 ## Features
 
@@ -19,46 +19,21 @@ pip install moondream
 
 ## Quick Start
 
-### Cloud
+Choose how you want to run it:
 
-- Get your free API key from [the Moondream cloud console](https://moondream.ai/c/cloud/api-keys). The free tier currently supports 5,000 requests per day.
+1. **Moondream Cloud**: (with 5,000 free requests/day): get a free API key from [the Moondream cloud console](https://moondream.ai/c/cloud/api-keys).
+2. **Moondream Server**: Run it locally by installing and running [the Moondream server](https://mooondream.ai/moondream-server).
+
+Once you've done at least *one* of these, try running this code:
 
 ```python
 import moondream as md
 from PIL import Image
 
-# Initialize with API key
+# Initialize for Moondream Cloud
 model = md.vl(api_key="your-api-key")
 
-# Load an image
-image = Image.open("path/to/image.jpg")
-
-# Generate a caption
-caption = model.caption(image)["caption"]
-print("Caption:", caption)
-
-# Ask a question
-answer = model.query(image, "What's in this image?")["answer"]
-print("Answer:", answer)
-
-# Stream the response
-for chunk in model.caption(image, stream=True)["caption"]:
-    print(chunk, end="", flush=True)
-```
-
-### Moondream Server (to run locally)
-
-- Install and run [the Moondream server](https://mooondream.ai/moondream-server)
-- Run the local server:
-  ```bash
-  ./moondream-server
-- Set the `endpoint` parameter to the URL of the local server (the local server default is `http://localhost:2020`)
-
-```python
-import moondream as md
-from PIL import Image
-
-# Initialize with local endpoint
+# ...or initialize for a local Moondream Server
 model = md.vl(endpoint="http://localhost:2020")
 
 # Load an image
