@@ -1,6 +1,5 @@
 from .version import __version__
 from .cloud_vl import CloudVL
-from .local_vl import LocalVL
 
 
 def vl(api_key: str = None, api_url: str = "https://api.moondream.ai/v1", **kwargs):
