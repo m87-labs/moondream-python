@@ -84,16 +84,16 @@ for chunk in model.caption(image, stream=True)["caption"]:
 ### Constructor
 
 ```python
-# for cloud inference
+# Cloud inference
 model = md.vl(api_key="your-api-key")
 
-# or for local inference
+# Local inference
 model = md.vl(api_url="http://localhost:8000")
 ```
 
 ### Methods
 
-#### caption(self, image: Union[Image.Image, EncodedImage], Literal["normal", "short", "long"] = "normal", stream bool = False) -> CaptionOutput
+#### caption(self, image: Union[Image.Image, EncodedImage], length: Literal["normal", "short", "long"] = "normal", stream: bool = False) -> CaptionOutput
 
 Generate a caption for an image.
 
@@ -156,7 +156,7 @@ encoded_image = model.encode_image(image)
 - QueryOutput: `{"answer": str | Generator}`
 - DetectOutput: `{"objects": List[Region]}`
 - PointOutput: `{"points": List[Point]}`
-- Region: Bounding box with coordinates (`x`, `y`, `width`, `height`)
+- Region: Bounding box with coordinates (`x_min`, `y_min`, `x_max`, `y_max`)
 - Point: Coordinates (`x`, `y`) indicating the object center
 
 ## Links
