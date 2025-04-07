@@ -31,7 +31,7 @@ import moondream as md
 from PIL import Image
 
 # Initialize for Moondream Cloud
-model = md.vl(api_key="your-api-key")
+model = md.vl(api_key="<your-api-key>")
 
 # ...or initialize for a local Moondream Server
 model = md.vl(endpoint="http://localhost:2020")
