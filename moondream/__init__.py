@@ -15,7 +15,7 @@ def vl(
 
     Args:
         api_key (str): Your API key for the remote (cloud) API.
-        endpoint (str): The endpoint which you would like to call. Local is http://localhost:2020 by default.
+        endpoint (str): The endpoint which you would like to call. Local is http://localhost:2020/v1 by default.
         **kwargs.
 
     Returns:

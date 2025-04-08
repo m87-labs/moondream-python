@@ -61,7 +61,7 @@ for chunk in model.caption(image, stream=True)["caption"]:
 
 ```python
 # Cloud inference
-model = md.vl(api_key="your-api-key")
+model = md.vl(api_key="<your-api-key>")
 
 # Local inference
 model = md.vl(endpoint="http://localhost:2020/v1")
