@@ -2,12 +2,15 @@
 
 Official Python client library for Moondream, a fast multi-function VLM. This client can target either the [Moondream Cloud](https://moondream.ai/cloud) or a [Moondream Server](https://moondream.ai/server). Both are free, though the cloud has a limits on the free tier.
 
-## Features
+## Capabilities
+Moondream goes beyond the typical VLM "query" ability to include more visual functions. These include:
 
 - **caption**: Generate descriptive captions for images
 - **query**: Ask questions about image content
 - **detect**: Find bounding boxes around objects in images
 - **point**: Identify the center location of specified objects in images
+
+You can try this out anytime on [Moondream's playground](https://moondream.ai/playground).
 
 ## Installation
 
