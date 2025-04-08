@@ -37,7 +37,7 @@ from PIL import Image
 model = md.vl(api_key="<your-api-key>")
 
 # ...or initialize for a local Moondream Server
-model = md.vl(endpoint="http://localhost:2020")
+model = md.vl(endpoint="http://localhost:2020/v1")
 
 # Load an image
 image = Image.open("path/to/image.jpg")
@@ -64,7 +64,7 @@ for chunk in model.caption(image, stream=True)["caption"]:
 model = md.vl(api_key="your-api-key")
 
 # Local inference
-model = md.vl(endpoint="http://localhost:2020")
+model = md.vl(endpoint="http://localhost:2020/v1")
 ```
 
 ### Methods

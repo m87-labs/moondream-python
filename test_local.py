@@ -16,7 +16,7 @@ def main(image_path: str):
         sys.exit(1)
 
     # Instantiate the client in local mode.
-    client = md.vl(endpoint="http://localhost:2020")
+    client = md.vl(endpoint="http://localhost:2020/v1")
 
     # Test the caption method.
     try:
