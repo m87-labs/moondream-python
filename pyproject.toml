@@ -1,0 +1,22 @@
+[build-system]
+requires = [ "poetry-core",]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "moondream"
+version = "0.1.0"
+description = "Python client library for moondream"
+authors = [ "M87 Labs <contact@moondream.ai>",]
+readme = "README.md"
+[[tool.poetry.packages]]
+include = "moondream"
+from = "."
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+reportMissingParameterType = false
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pillow = "^10.4.0"
