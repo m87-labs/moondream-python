@@ -70,6 +70,7 @@ class CloudVL(VLM):
         length: Literal["normal", "short", "long"] = "normal",
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
+        variant: Optional[str] = None,
     ) -> CaptionOutput:
         encoded_image = self.encode_image(image)
         payload = {
@@ -79,6 +80,8 @@ class CloudVL(VLM):
         }
         if settings is not None:
             payload["settings"] = settings
+        if variant is not None:
+            payload["variant"] = variant
 
         data = json.dumps(payload).encode("utf-8")
         headers = {
@@ -106,19 +109,31 @@ class CloudVL(VLM):
 
     def query(
         self,
-        image: Union[Image.Image, EncodedImage],
-        question: str,
+        image: Optional[Union[Image.Image, EncodedImage]] = None,
+        question: Optional[str] = None,
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
+        reasoning: bool = False,
+        variant: Optional[str] = None,
     ) -> QueryOutput:
-        encoded_image = self.encode_image(image)
+        if question is None:
+            raise ValueError("question parameter is required")
+        
         payload = {
-            "image_url": encoded_image.image_url,
             "question": question,
             "stream": stream,
         }
+        
+        if image is not None:
+            encoded_image = self.encode_image(image)
+            payload["image_url"] = encoded_image.image_url
+            
         if settings is not None:
             payload["settings"] = settings
+        if reasoning:
+            payload["reasoning"] = reasoning
+        if variant is not None:
+            payload["variant"] = variant
 
         data = json.dumps(payload).encode("utf-8")
         headers = {
@@ -138,13 +153,17 @@ class CloudVL(VLM):
 
         with urllib.request.urlopen(req) as response:
             result = json.loads(response.read().decode("utf-8"))
-            return {"answer": result["answer"]}
+            output = {"answer": result["answer"]}
+            if "reasoning" in result and result["reasoning"] is not None:
+                output["reasoning"] = result["reasoning"]
+            return output
 
     def detect(
         self,
         image: Union[Image.Image, EncodedImage],
         object: str,
         settings: Optional[SamplingSettings] = None,
+        variant: Optional[str] = None,
     ) -> DetectOutput:
         encoded_image = self.encode_image(image)
         payload = {
@@ -153,6 +172,8 @@ class CloudVL(VLM):
         }
         if settings is not None:
             payload["settings"] = settings
+        if variant is not None:
+            payload["variant"] = variant
 
         data = json.dumps(payload).encode("utf-8")
         headers = {
@@ -176,6 +197,7 @@ class CloudVL(VLM):
         image: Union[Image.Image, EncodedImage],
         object: str,
         settings: Optional[SamplingSettings] = None,
+        variant: Optional[str] = None,
     ) -> PointOutput:
         encoded_image = self.encode_image(image)
         payload = {
@@ -184,6 +206,8 @@ class CloudVL(VLM):
         }
         if settings is not None:
             payload["settings"] = settings
+        if variant is not None:
+            payload["variant"] = variant
 
         data = json.dumps(payload).encode("utf-8")
         headers = {

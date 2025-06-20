@@ -24,8 +24,30 @@ CaptionOutput = TypedDict(
     "CaptionOutput", {"caption": Union[str, Generator[str, None, None]]}
 )
 
+ReasoningGrounding = TypedDict(
+    "ReasoningGrounding",
+    {
+        "start_idx": int,
+        "end_idx": int,
+        "points": List[List[int]]  # List of [x, y] coordinate pairs
+    }
+)
+
+Reasoning = TypedDict(
+    "Reasoning",
+    {
+        "text": str,
+        "grounding": List[ReasoningGrounding]
+    }
+)
+
 QueryOutput = TypedDict(
-    "QueryOutput", {"answer": Union[str, Generator[str, None, None]]}
+    "QueryOutput", 
+    {
+        "answer": Union[str, Generator[str, None, None]], 
+        "reasoning": Optional[Reasoning]
+    },
+    total=False
 )
 
 Region = TypedDict(
@@ -62,6 +84,7 @@ class VLM(ABC):
         length: Literal["normal", "short"] = "normal",
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
+        variant: Optional[str] = None,
     ) -> CaptionOutput:
         """
         Generate a caption for the input image.
@@ -83,10 +106,12 @@ class VLM(ABC):
     @abstractmethod
     def query(
         self,
-        image: Union[Image.Image, EncodedImage],
-        question: str,
+        image: Optional[Union[Image.Image, EncodedImage]] = None,
+        question: Optional[str] = None,
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
+        reasoning: bool = False,
+        variant: Optional[str] = None,
     ) -> QueryOutput:
         """
         Generate an answer to the input question about the input image.
@@ -109,6 +134,7 @@ class VLM(ABC):
         self,
         image: Union[Image.Image, EncodedImage],
         object: str,
+        variant: Optional[str] = None,
     ) -> DetectOutput:
         """
         Detect and localize the specified object in the input image.
@@ -132,6 +158,7 @@ class VLM(ABC):
         self,
         image: Union[Image.Image, EncodedImage],
         object: str,
+        variant: Optional[str] = None,
     ) -> PointOutput:
         """
         Points out all instances of the given object in the input image.
