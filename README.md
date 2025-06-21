@@ -25,7 +25,7 @@ pip install moondream
 Choose how you want to run it:
 
 1. **Moondream Cloud**: (with 5,000 free requests/day): get a free API key from [the Moondream cloud console](https://moondream.ai/c/cloud/api-keys).
-2. **Moondream Server**: Run it locally by installing and running [the Moondream server](https://mooondream.ai/moondream-server).
+2. **Moondream Server**: Run it locally by installing and running [the Moondream server](https://moondream.ai/moondream-server).
 
 Once you've done at least *one* of these, try running this code:
 
