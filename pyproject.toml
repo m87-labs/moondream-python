@@ -4,8 +4,8 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "moondream"
-version = "0.1.0"
-description = "Python client library for moondream"
+version = "0.2.0"
+description = "Official Python client for Moondream, a fast and efficient vision language model."
 authors = [ "M87 Labs <contact@moondream.ai>",]
 readme = "README.md"
 [[tool.poetry.packages]]
