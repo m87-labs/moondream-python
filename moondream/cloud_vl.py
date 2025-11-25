@@ -14,7 +14,10 @@ from .types import (
     EncodedImage,
     PointOutput,
     QueryOutput,
+    Region,
     SamplingSettings,
+    SegmentOutput,
+    SpatialRef,
 )
 from .version import __version__
 
@@ -225,3 +228,86 @@ class CloudVL(VLM):
         with urllib.request.urlopen(req) as response:
             result = json.loads(response.read().decode("utf-8"))
             return {"points": result["points"]}
+
+    def _stream_segment_response(self, req):
+        """Stream segmentation response, yielding update dicts.
+
+        The streaming format sends:
+        - {"type": "bbox", "bbox": {...}} - bounding box (first message)
+        - {"type": "path_delta", "chunk": "...", "completed": false} - coarse path chunks
+        - {"type": "final", "path": "...", "bbox": {...}, "completed": true} - final refined path
+
+        Yields dicts with:
+        - {"bbox": Region} - when bbox is received
+        - {"chunk": str} - for each coarse path chunk
+        - {"path": str, "bbox": Region, "completed": True} - final message with refined path
+        """
+        with urllib.request.urlopen(req) as response:
+            for line in response:
+                if not line:
+                    continue
+                line = line.decode("utf-8")
+                if line.startswith("data: "):
+                    try:
+                        data = json.loads(line[6:])
+                        msg_type = data.get("type", "")
+
+                        if msg_type == "bbox":
+                            yield {"bbox": data.get("bbox")}
+                        elif msg_type == "path_delta":
+                            chunk = data.get("chunk", "")
+                            if chunk:
+                                yield {"chunk": chunk}
+                        elif msg_type == "final":
+                            yield {
+                                "path": data.get("path", ""),
+                                "bbox": data.get("bbox"),
+                                "completed": True,
+                            }
+                            break
+                    except json.JSONDecodeError as e:
+                        raise ValueError(
+                            "Failed to parse JSON response from server."
+                        ) from e
+
+    def segment(
+        self,
+        image: Union[Image.Image, EncodedImage],
+        object: str,
+        spatial_refs: Optional[list[SpatialRef]] = None,
+        stream: bool = False,
+        settings: Optional[SamplingSettings] = None,
+    ):
+        encoded_image = self.encode_image(image)
+        payload = {
+            "image_url": encoded_image.image_url,
+            "object": object,
+            "stream": stream,
+        }
+        if spatial_refs is not None:
+            payload["spatial_refs"] = spatial_refs
+        if settings is not None:
+            payload["settings"] = settings
+
+        data = json.dumps(payload).encode("utf-8")
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": f"moondream-python/{__version__}",
+        }
+        if self.api_key:
+            headers["X-Moondream-Auth"] = self.api_key
+        req = urllib.request.Request(
+            f"{self.endpoint}/segment",
+            data=data,
+            headers=headers,
+        )
+
+        if stream:
+            return self._stream_segment_response(req)
+
+        with urllib.request.urlopen(req) as response:
+            result = json.loads(response.read().decode("utf-8"))
+            output: SegmentOutput = {"path": result["path"]}
+            if result.get("bbox"):
+                output["bbox"] = result["bbox"]
+            return output

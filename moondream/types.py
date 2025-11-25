@@ -58,6 +58,31 @@ DetectOutput = TypedDict("DetectOutput", {"objects": List[Region]})
 Point = TypedDict("Point", {"x": float, "y": float})
 PointOutput = TypedDict("PointOutput", {"points": List[Point]})
 
+SpatialRef = List[float]  # [x, y] point or [x1, y1, x2, y2] bbox, normalized to [0, 1]
+
+SegmentOutput = TypedDict(
+    "SegmentOutput",
+    {
+        "path": str,
+        "bbox": Optional[Region],
+    },
+    total=False,
+)
+
+# Streaming segment yields these update dicts
+SegmentStreamChunk = TypedDict(
+    "SegmentStreamChunk",
+    {
+        "bbox": Optional[Region],  # Present in first message and final message
+        "chunk": Optional[str],  # Coarse path chunk (path_delta messages)
+        "path": Optional[str],  # Final refined path (final message only)
+        "completed": Optional[bool],  # True in final message
+    },
+    total=False,
+)
+
+SegmentStreamOutput = Generator[SegmentStreamChunk, None, None]
+
 
 class VLM(ABC):
     @abstractmethod
@@ -178,4 +203,33 @@ class VLM(ABC):
         a list of coordinates marking the location of each instance found. Each point
         indicates the approximate center or most relevant position for that object
         instance.
+        """
+
+    @abstractmethod
+    def segment(
+        self,
+        image: Union[Image.Image, EncodedImage],
+        object: str,
+        spatial_refs: Optional[List[SpatialRef]] = None,
+        stream: bool = False,
+        settings: Optional[SamplingSettings] = None,
+    ) -> Union[SegmentOutput, SegmentStreamOutput]:
+        """
+        Segment an object from the image and return an SVG path.
+
+        Args:
+            image (Union[Image.Image, EncodedImage]): The input image to segment.
+            object (str): The object to segment from the image.
+            spatial_refs (Optional[List[SpatialRef]]): Optional spatial references to guide
+                segmentation. Each ref is either a [x, y] point or [x1, y1, x2, y2] bbox,
+                with values normalized to [0, 1].
+            stream (bool): If True, returns a generator yielding update dicts. Defaults to False.
+            settings (Optional[SamplingSettings]): Optional settings for the segmentation.
+
+        Returns:
+            When stream=False: SegmentOutput dict with 'path' and 'bbox'.
+            When stream=True: Generator yielding SegmentStreamChunk dicts:
+                - {"bbox": Region} - bounding box (first message)
+                - {"chunk": str} - coarse path chunks
+                - {"path": str, "bbox": Region, "completed": True} - final refined path
         """

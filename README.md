@@ -12,6 +12,7 @@ Moondream goes beyond the typical VLM "query" ability to include more visual fun
 | `query` | Ask questions about image content |
 | `detect` | Find bounding boxes around objects in images |
 | `point` | Identify the center location of specified objects |
+| `segment` | Generate an SVG path segmentation mask for objects |
 
 Try it out on [Moondream's playground](https://moondream.ai/playground).
 
@@ -139,6 +140,41 @@ points = model.point(image, "person")["points"]
 
 ---
 
+#### `segment(image, object, spatial_refs=None, stream=False)`
+
+Segment an object from an image and return an SVG path.
+
+**Parameters:**
+- `image` — `Image.Image` or `EncodedImage`
+- `object` — `str`
+- `spatial_refs` — `List[[x, y] | [x1, y1, x2, y2]]` — optional spatial hints (normalized 0-1)
+- `stream` — `bool` (default: `False`)
+
+**Returns:**
+- Non-streaming: `SegmentOutput` — `{"path": str, "bbox": Region}`
+- Streaming: Generator yielding update dicts
+
+```python
+result = model.segment(image, "cat")
+svg_path = result["path"]
+bbox = result["bbox"]  # {"x_min": ..., "y_min": ..., "x_max": ..., "y_max": ...}
+
+# With spatial hint (point)
+result = model.segment(image, "cat", spatial_refs=[[0.5, 0.5]])
+
+# With streaming
+for update in model.segment(image, "cat", stream=True):
+    if "bbox" in update and not update.get("completed"):
+        print(f"Bbox: {update['bbox']}")  # Available in first message
+    if "chunk" in update:
+        print(update["chunk"], end="")  # Coarse path chunks
+    if update.get("completed"):
+        print(f"Final path: {update['path']}")  # Refined path
+        print(f"Final bbox: {update['bbox']}")
+```
+
+---
+
 #### `encode_image(image)`
 
 Pre-encode an image for reuse across multiple calls.
@@ -161,6 +197,7 @@ encoded = model.encode_image(image)
 | `Base64EncodedImage` | Output of `encode_image()`, subtype of `EncodedImage` |
 | `Region` | Bounding box with `x_min`, `y_min`, `x_max`, `y_max` |
 | `Point` | Coordinates with `x`, `y` indicating object center |
+| `SpatialRef` | `[x, y]` point or `[x1, y1, x2, y2]` bbox, normalized to [0, 1] |
 
 ## Links
 
