@@ -28,9 +28,11 @@ class CloudVL(VLM):
         *,
         endpoint: str = "https://api.moondream.ai/v1",
         api_key: Optional[str] = None,
+        model: Optional[str] = None,
     ):
         self.api_key = api_key
         self.endpoint = endpoint
+        self.model = model
 
     def encode_image(
         self, image: Union[Image.Image, EncodedImage]
@@ -73,7 +75,6 @@ class CloudVL(VLM):
         length: Literal["normal", "short", "long"] = "normal",
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
-        variant: Optional[str] = None,
     ) -> CaptionOutput:
         encoded_image = self.encode_image(image)
         payload = {
@@ -81,10 +82,10 @@ class CloudVL(VLM):
             "length": length,
             "stream": stream,
         }
+        if self.model is not None:
+            payload["model"] = self.model
         if settings is not None:
             payload["settings"] = settings
-        if variant is not None:
-            payload["variant"] = variant
 
         data = json.dumps(payload).encode("utf-8")
         headers = {
@@ -117,26 +118,24 @@ class CloudVL(VLM):
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
         reasoning: bool = False,
-        variant: Optional[str] = None,
     ) -> QueryOutput:
         if question is None:
             raise ValueError("question parameter is required")
-        
+
         payload = {
             "question": question,
             "stream": stream,
         }
-        
+
         if image is not None:
             encoded_image = self.encode_image(image)
             payload["image_url"] = encoded_image.image_url
-            
+        if self.model is not None:
+            payload["model"] = self.model
         if settings is not None:
             payload["settings"] = settings
         if reasoning:
             payload["reasoning"] = reasoning
-        if variant is not None:
-            payload["variant"] = variant
 
         data = json.dumps(payload).encode("utf-8")
         headers = {
@@ -166,17 +165,16 @@ class CloudVL(VLM):
         image: Union[Image.Image, EncodedImage],
         object: str,
         settings: Optional[SamplingSettings] = None,
-        variant: Optional[str] = None,
     ) -> DetectOutput:
         encoded_image = self.encode_image(image)
         payload = {
             "image_url": encoded_image.image_url,
             "object": object,
         }
+        if self.model is not None:
+            payload["model"] = self.model
         if settings is not None:
             payload["settings"] = settings
-        if variant is not None:
-            payload["variant"] = variant
 
         data = json.dumps(payload).encode("utf-8")
         headers = {
@@ -200,17 +198,16 @@ class CloudVL(VLM):
         image: Union[Image.Image, EncodedImage],
         object: str,
         settings: Optional[SamplingSettings] = None,
-        variant: Optional[str] = None,
     ) -> PointOutput:
         encoded_image = self.encode_image(image)
         payload = {
             "image_url": encoded_image.image_url,
             "object": object,
         }
+        if self.model is not None:
+            payload["model"] = self.model
         if settings is not None:
             payload["settings"] = settings
-        if variant is not None:
-            payload["variant"] = variant
 
         data = json.dumps(payload).encode("utf-8")
         headers = {
@@ -284,6 +281,8 @@ class CloudVL(VLM):
             "object": object,
             "stream": stream,
         }
+        if self.model is not None:
+            payload["model"] = self.model
         if spatial_refs is not None:
             payload["spatial_refs"] = spatial_refs
         if settings is not None:
