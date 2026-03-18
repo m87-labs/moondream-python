@@ -19,7 +19,9 @@ from .types import (
     SegmentOutput,
     SpatialRef,
 )
-from .version import __version__
+from importlib.metadata import version as _pkg_version
+
+__version__ = _pkg_version("moondream")
 
 
 class CloudVL(VLM):

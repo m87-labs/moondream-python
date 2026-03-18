@@ -1,6 +1,9 @@
+from importlib.metadata import version as _pkg_version
 from typing import Optional
-from .version import __version__
+
 from .cloud_vl import CloudVL
+
+__version__ = _pkg_version("moondream")
 
 DEFAULT_ENDPOINT = "https://api.moondream.ai/v1"
 
