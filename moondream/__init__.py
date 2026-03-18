@@ -8,6 +8,7 @@ DEFAULT_ENDPOINT = "https://api.moondream.ai/v1"
 def vl(
     api_key: Optional[str] = None,
     endpoint: Optional[str] = DEFAULT_ENDPOINT,
+    local: bool = False,
     **kwargs,
 ):
     """
@@ -16,12 +17,18 @@ def vl(
     Args:
         api_key (str): Your API key for the remote (cloud) API.
         endpoint (str): The endpoint which you would like to call. Local is http://localhost:2020/v1 by default.
-        **kwargs.
+        local (bool): If True, use local GPU inference via Photon instead of the cloud API.
+        **kwargs: Additional arguments forwarded to the backend (e.g. model, max_batch_size,
+            kv_cache_pages, device for local mode).
 
     Returns:
-        An instance of CloudVL.
+        An instance of CloudVL or PhotonVL.
     """
-    return CloudVL(api_key=api_key, endpoint=endpoint, **kwargs)
+    if local:
+        from .photon_vl import PhotonVL
+        return PhotonVL(api_key=api_key, **kwargs)
+    model = kwargs.pop("model", None)
+    return CloudVL(api_key=api_key, endpoint=endpoint, model=model, **kwargs)
 
 
 __all__ = ["vl", "__version__"]

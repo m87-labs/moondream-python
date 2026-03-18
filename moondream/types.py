@@ -109,7 +109,6 @@ class VLM(ABC):
         length: Literal["normal", "short"] = "normal",
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
-        variant: Optional[str] = None,
     ) -> CaptionOutput:
         """
         Generate a caption for the input image.
@@ -136,7 +135,6 @@ class VLM(ABC):
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
         reasoning: bool = False,
-        variant: Optional[str] = None,
     ) -> QueryOutput:
         """
         Generate an answer to the input question about the input image.
@@ -159,7 +157,6 @@ class VLM(ABC):
         self,
         image: Union[Image.Image, EncodedImage],
         object: str,
-        variant: Optional[str] = None,
     ) -> DetectOutput:
         """
         Detect and localize the specified object in the input image.
@@ -183,7 +180,6 @@ class VLM(ABC):
         self,
         image: Union[Image.Image, EncodedImage],
         object: str,
-        variant: Optional[str] = None,
     ) -> PointOutput:
         """
         Points out all instances of the given object in the input image.
