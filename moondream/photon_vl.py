@@ -2,7 +2,6 @@
 
 import asyncio
 import base64
-import os
 import queue
 import threading
 from io import BytesIO
@@ -85,6 +84,7 @@ def _get_or_create_engine(
     max_batch_size: int,
     kv_cache_pages: Optional[int],
     device: str,
+    api_key: Optional[str] = None,
 ):
     """Return a shared (engine, loop, thread) for the given config."""
     key = (base_model, device, max_batch_size, kv_cache_pages)
@@ -109,7 +109,7 @@ def _get_or_create_engine(
     )
 
     engine = asyncio.run_coroutine_threadsafe(
-        InferenceEngine.create(cfg), loop
+        InferenceEngine.create(cfg, api_key=api_key), loop
     ).result()
 
     entry = (engine, loop, thread)
@@ -138,12 +138,9 @@ class PhotonVL(VLM):
         kv_cache_pages: Optional[int] = None,
         device: str = "cuda",
     ):
-        if api_key is not None:
-            os.environ["MOONDREAM_API_KEY"] = api_key
-
         base_model, self._adapter = _parse_model(model)
         self._engine, self._loop, self._thread = _get_or_create_engine(
-            base_model, max_batch_size, kv_cache_pages, device
+            base_model, max_batch_size, kv_cache_pages, device, api_key=api_key
         )
 
     # ------------------------------------------------------------------
