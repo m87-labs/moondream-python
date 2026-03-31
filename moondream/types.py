@@ -202,15 +202,6 @@ CheckpointListOutput = TypedDict(
     total=False,
 )
 
-CheckpointDownload = TypedDict(
-    "CheckpointDownload",
-    {
-        "url": str,
-        "expires_in": int,
-    },
-)
-
-
 @dataclass(frozen=True)
 class RolloutGroup:
     skill: Literal["query", "point", "detect"]

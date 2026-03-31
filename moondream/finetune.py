@@ -17,7 +17,6 @@ from PIL import Image
 
 from .types import (
     Base64EncodedImage,
-    CheckpointDownload,
     CheckpointInfo,
     CheckpointListOutput,
     DetectGroundTruth,
@@ -473,6 +472,11 @@ class Finetune:
         """Generate query rollouts.
 
         Query settings typically use `temperature`, `top_p`, and `max_tokens`.
+
+        Returns:
+            RLGroup: `group.rollouts` is a list of query output dicts such as
+            `{"answer": "People are smiling for a photo."}`. When `reasoning=True`,
+            each rollout may also include `{"reasoning": ...}`.
         """
         if question is None:
             raise ValueError("question parameter is required")
@@ -498,6 +502,10 @@ class Finetune:
         """Generate point rollouts.
 
         Point settings typically use `temperature`, `top_p`, and `max_objects`.
+
+        Returns:
+            RLGroup: `group.rollouts` is a list of point output dicts such as
+            `{"points": [{"x": 0.24, "y": 0.58}, {"x": 0.71, "y": 0.61}]}`.
         """
         return self._rollouts_from_group(
             RolloutGroup.point(
@@ -520,6 +528,10 @@ class Finetune:
         """Generate detect rollouts.
 
         Detect settings typically use `temperature`, `top_p`, and `max_objects`.
+
+        Returns:
+            RLGroup: `group.rollouts` is a list of detect output dicts such as
+            `{"objects": [{"x_min": 0.12, "y_min": 0.08, "x_max": 0.41, "y_max": 0.95}]}`.
         """
         return self._rollouts_from_group(
             RolloutGroup.detect(
@@ -682,11 +694,6 @@ class Finetune:
     def delete_checkpoint(self, step: int) -> None:
         self._request_json(
             "DELETE", f"/finetunes/{self.finetune_id}/checkpoints/{step}"
-        )
-
-    def download_checkpoint(self, step: int) -> CheckpointDownload:
-        return self._request_json(
-            "GET", f"/finetunes/{self.finetune_id}/checkpoints/{step}/download"
         )
 
     def model(self, step: int) -> str:
