@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import copy
 import json
 import math
 import random
@@ -447,7 +448,7 @@ class Finetune:
         rollouts_payload = result.get("rollouts", [])
         return RLGroup(
             skill=group.skill,
-            rollouts=[dict(rollout.get("output", {})) for rollout in rollouts_payload],
+            rollouts=[copy.deepcopy(rollout.get("output", {})) for rollout in rollouts_payload],
             image=group.image,
             question=group.question,
             object=group.object,

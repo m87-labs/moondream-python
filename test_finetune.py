@@ -166,6 +166,43 @@ class FinetuneTests(unittest.TestCase):
         self.assertEqual(payload["request"]["skill"], "detect")
         self.assertTrue(payload["request"]["image_url"].startswith("data:image/jpeg;base64,"))
 
+    def test_detect_rollouts_deep_copy_public_outputs(self):
+        response = {
+            "request": {
+                "skill": "detect",
+                "object": "vehicles",
+                "image_url": "data:image/jpeg;base64,abc",
+            },
+            "rollouts": [
+                _raw_rollout(
+                    "detect",
+                    {
+                        "objects": [
+                            {
+                                "x_min": 0.1,
+                                "y_min": 0.2,
+                                "x_max": 0.3,
+                                "y_max": 0.4,
+                            }
+                        ]
+                    },
+                )
+            ],
+        }
+
+        with mock.patch.object(self.client, "_request_json", return_value=response):
+            rl_group = self.client.detect_rollouts(
+                self.image,
+                "vehicles",
+            )
+
+        rl_group.rollouts[0]["objects"].append(
+            {"x_min": 0.5, "y_min": 0.6, "x_max": 0.7, "y_max": 0.8}
+        )
+
+        self.assertEqual(len(rl_group.rollouts[0]["objects"]), 2)
+        self.assertEqual(len(rl_group._rollouts_payload[0]["output"]["objects"]), 1)
+
     def test_query_rollouts_return_flat_model_outputs(self):
         response = {
             "request": {
