@@ -28,13 +28,15 @@ class _FakeResponse:
 def _http_error(status, body, headers=None):
     if isinstance(body, dict):
         body = json.dumps(body).encode("utf-8")
-    return urllib.error.HTTPError(
+    error = urllib.error.HTTPError(
         url="https://example.test",
         code=status,
         msg="error",
         hdrs=headers or {},
         fp=mock.Mock(read=mock.Mock(return_value=body)),
     )
+    error.close = mock.Mock()
+    return error
 
 
 def _raw_rollout(skill, output):
@@ -471,9 +473,10 @@ class FinetuneTests(unittest.TestCase):
         self.assertEqual(attempts["count"], 3)
 
     def test_request_json_does_not_retry_bad_api_key(self):
+        error = _http_error(401, {"error": "invalid api key"})
         with mock.patch(
             "urllib.request.urlopen",
-            side_effect=_http_error(401, {"error": "invalid api key"}),
+            side_effect=error,
         ) as mocked:
             with self.assertRaises(FinetuneAPIError) as ctx:
                 self.client._request_json("GET", "/finetunes/ft_123")
@@ -482,22 +485,21 @@ class FinetuneTests(unittest.TestCase):
         self.assertEqual(ctx.exception.body, "invalid api key")
         self.assertIn("401", str(ctx.exception))
         self.assertEqual(mocked.call_count, 1)
+        error.close.assert_called_once()
 
     def test_request_json_retries_524_then_succeeds(self):
-        attempts = {"count": 0}
+        errors = [_http_error(524, "error code: 524"), _http_error(524, "error code: 524")]
 
-        def urlopen(*args, **kwargs):
-            attempts["count"] += 1
-            if attempts["count"] < 3:
-                raise _http_error(524, "error code: 524")
-            return _FakeResponse({"ok": True})
-
-        with mock.patch("urllib.request.urlopen", side_effect=urlopen):
+        with mock.patch(
+            "urllib.request.urlopen",
+            side_effect=[errors[0], errors[1], _FakeResponse({"ok": True})],
+        ):
             with mock.patch("time.sleep"):
                 result = self.client._request_json("POST", "/rollouts", payload={"x": 1})
 
         self.assertEqual(result, {"ok": True})
-        self.assertEqual(attempts["count"], 3)
+        for error in errors:
+            error.close.assert_called_once()
 
     def test_rollout_groups_preserves_order_and_concurrency_cap(self):
         active = {"count": 0, "max": 0}

@@ -142,8 +142,18 @@ def _is_retryable_error(exc: Exception) -> bool:
     return isinstance(exc, (TimeoutError, socket.timeout))
 
 
+def _close_http_error(exc: urllib.error.HTTPError):
+    try:
+        exc.close()
+    except Exception:
+        pass
+
+
 def _raise_http_error(path: str, exc: urllib.error.HTTPError):
-    message = _error_message(exc)
+    try:
+        message = _error_message(exc)
+    finally:
+        _close_http_error(exc)
     raise FinetuneAPIError(
         f"{path} failed with status {exc.code}: {message}",
         status=exc.code,
@@ -248,6 +258,8 @@ class Finetune:
                     if isinstance(exc, urllib.error.HTTPError):
                         _raise_http_error(path, exc)
                     raise FinetuneAPIError(f"{path} failed: {exc}") from exc
+                if isinstance(exc, urllib.error.HTTPError):
+                    _close_http_error(exc)
                 time.sleep(self._backoff_delay(attempt, exc))
 
         raise FinetuneAPIError(f"{path} failed: {last_error}")
@@ -275,6 +287,8 @@ class Finetune:
                     if isinstance(exc, urllib.error.HTTPError):
                         _raise_http_error(path, exc)
                     raise FinetuneAPIError(f"{path} failed: {exc}") from exc
+                if isinstance(exc, urllib.error.HTTPError):
+                    _close_http_error(exc)
                 await asyncio.sleep(self._backoff_delay(attempt, exc))
 
         raise FinetuneAPIError(f"{path} failed: {last_error}")
