@@ -52,26 +52,20 @@ class FinetuneAPIError(RuntimeError):
         self.body = body
 
 
-def _image_to_jpeg_bytes(image) -> bytes:
-    if isinstance(image, Image.Image):
-        try:
-            if image.mode != "RGB":
-                image = image.convert("RGB")
-            buffered = BytesIO()
-            image.save(buffered, format="JPEG", quality=95)
-            return buffered.getvalue()
-        except Exception as exc:
-            raise ValueError("Failed to convert image to JPEG.") from exc
-
-    raise ValueError(f"Unsupported EncodedImage type: {type(image)}")
-
-
 def _encode_image(image) -> Base64EncodedImage:
     if isinstance(image, Base64EncodedImage):
         return image
-    image_bytes = _image_to_jpeg_bytes(image)
-    img_str = base64.b64encode(image_bytes).decode()
-    return Base64EncodedImage(image_url=f"data:image/jpeg;base64,{img_str}")
+    if not isinstance(image, Image.Image):
+        raise ValueError(f"Unsupported image type: {type(image)}")
+    try:
+        if image.mode != "RGB":
+            image = image.convert("RGB")
+        buffered = BytesIO()
+        image.save(buffered, format="JPEG", quality=95)
+        img_str = base64.b64encode(buffered.getvalue()).decode()
+        return Base64EncodedImage(image_url=f"data:image/jpeg;base64,{img_str}")
+    except Exception as exc:
+        raise ValueError("Failed to convert image to JPEG.") from exc
 
 
 def _error_message(exc: urllib.error.HTTPError) -> str:
@@ -268,17 +262,6 @@ class Finetune:
         if request.ground_truth is not None:
             payload["ground_truth"] = dict(request.ground_truth)
         return payload
-
-    def _rl_group_from_response(self, response: RolloutsResponse) -> RLGroup:
-        group: RLGroup = {
-            "mode": "rl",
-            "request": response["request"],
-            "rollouts": response.get("rollouts", []),
-        }
-        rewards = response.get("rewards")
-        if rewards is not None:
-            group["rewards"] = rewards
-        return group
 
     def rollouts(self, request: RolloutRequest) -> RolloutsResponse:
         """Generate rollouts for a single request.

@@ -108,18 +108,8 @@ def parse_args():
 
 def main():
     args = parse_args()
-    if not args.api_key:
-        raise SystemExit("Pass --api-key or set MOONDREAM_API_KEY")
-    if not args.hf_token:
-        raise SystemExit("Pass --hf-token or set HF_TOKEN")
-    if args.steps < 1:
-        raise SystemExit("--steps must be at least 1")
-    if args.num_rollouts < 1 or args.num_rollouts > 16:
-        raise SystemExit("--num-rollouts must be between 1 and 16")
-    if args.eval_every < 1:
-        raise SystemExit("--eval-every must be at least 1")
-    if args.eval_samples < 1:
-        raise SystemExit("--eval-samples must be at least 1")
+    assert args.api_key, "Pass --api-key or set MOONDREAM_API_KEY"
+    assert args.hf_token, "Pass --hf-token or set HF_TOKEN"
 
     train_examples = iter_examples("train", args.hf_token)
     eval_examples = list(islice(iter_examples("valid", args.hf_token), args.eval_samples))
