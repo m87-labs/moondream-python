@@ -5,6 +5,7 @@ import unittest
 import urllib.error
 from unittest import mock
 
+import moondream as md
 from PIL import Image
 
 from moondream.finetune import Finetune, FinetuneAPIError, ft
@@ -79,6 +80,14 @@ class FinetuneTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             ft(api_key="x", name="demo", rank=8, max_retries=-1)
+
+    def test_package_exposes_helper_types_under_md_types(self):
+        self.assertTrue(hasattr(md, "ft"))
+        self.assertTrue(hasattr(md, "types"))
+        self.assertIs(md.types.RolloutGroup, RolloutGroup)
+        self.assertIs(md.types.SFTGroup, SFTGroup)
+        self.assertFalse(hasattr(md, "RolloutGroup"))
+        self.assertFalse(hasattr(md, "SFTGroup"))
 
     def test_ft_binds_existing_finetune(self):
         response = {

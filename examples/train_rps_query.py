@@ -23,6 +23,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import moondream as md
+from moondream.finetune import DEFAULT_TUNING_ENDPOINT
 
 
 DATASET_NAME = "moondream/classification"
@@ -92,7 +93,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--api-key", default=os.getenv("MOONDREAM_API_KEY"))
     parser.add_argument("--hf-token", default=os.getenv("HF_TOKEN"))
-    parser.add_argument("--endpoint", default=md.DEFAULT_TUNING_ENDPOINT)
+    parser.add_argument("--endpoint", default=DEFAULT_TUNING_ENDPOINT)
     parser.add_argument("--rank", type=int, default=8)
     parser.add_argument("--steps", type=int, default=20)
     parser.add_argument("--num-rollouts", type=int, default=4)
