@@ -38,16 +38,6 @@ __version__ = _pkg_version("moondream")
 DEFAULT_TUNING_ENDPOINT = "https://api.moondream.ai/v1/tuning"
 
 _RETRY_STATUS_CODES = {408, 429, 500, 502, 503, 504, 524}
-_TRAIN_STEP_OUTPUT_KEYS = (
-    "step",
-    "applied",
-    "kl",
-    "router_kl",
-    "grad_norm",
-    "sft_loss",
-    "reward_mean",
-    "reward_std",
-)
 
 
 class FinetuneAPIError(RuntimeError):
@@ -442,7 +432,7 @@ class Finetune:
             payload=payload,
             max_retries=0,
         )
-        return {key: result[key] for key in _TRAIN_STEP_OUTPUT_KEYS if key in result}
+        return result
 
     def log_metrics(
         self,

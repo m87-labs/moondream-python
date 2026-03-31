@@ -287,7 +287,7 @@ class FinetuneTests(unittest.TestCase):
         self.assertEqual(payload["groups"][1]["mode"], "sft")
         self.assertEqual(payload["groups"][1]["targets"], [{"answer": "United States"}])
 
-    def test_train_step_hides_internal_metrics(self):
+    def test_train_step_returns_raw_response(self):
         rl_group: RLGroup = {
             "mode": "rl",
             "request": {"skill": "query", "question": "What is this?"},
@@ -302,7 +302,7 @@ class FinetuneTests(unittest.TestCase):
         ):
             result = self.client.train_step([rl_group])
 
-        self.assertEqual(result, {"step": 1, "applied": True})
+        self.assertEqual(result, {"step": 1, "applied": True, "internal_metric": 0.5})
 
     def test_log_metrics_builds_payload_and_returns_response(self):
         with mock.patch.object(
