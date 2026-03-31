@@ -24,7 +24,6 @@ if str(REPO_ROOT) not in sys.path:
 import moondream as md
 
 API_KEY = os.environ["MOONDREAM_API_KEY"]
-HF_TOKEN = os.environ["HF_TOKEN"]
 
 QUESTION = "Is this rock, paper, or scissors? Respond with rock, paper, or scissors only."
 TRAIN_SETTINGS = {"temperature": 1.0, "top_p": 1.0, "max_tokens": 4}
@@ -48,17 +47,11 @@ def iter_examples(target_split: str):
         "real-rps",
         split="train",
         streaming=True,
-        token=HF_TOKEN,
     ).filter(lambda row: row.get("split", "").lower() == target_split)
 
     while True:
         for row in dataset:
-            label = row.get("class", "")
-            image = row.get("image")
-            if not label or image is None:
-                continue
-
-            yield {"image": image, "answer": label}
+            yield {"image": row["image"], "answer": row["class"]}
 
 
 def evaluate(ft, examples: list[dict]) -> float:

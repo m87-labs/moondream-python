@@ -22,7 +22,6 @@ from .types import (
     EncodedImage,
     MetricsLogOutput,
     RLGroup,
-    RolloutRequest,
     RolloutsResponse,
     SamplingSettings,
     SaveCheckpointOutput,
@@ -187,25 +186,6 @@ class Finetune:
             payload["settings"] = dict(settings)
         return payload
 
-    def _rollouts_payload(self, request: RolloutRequest) -> dict:
-        payload = {
-            "finetune_id": self.finetune_id,
-            "num_rollouts": request.get("num_rollouts", 1),
-            "request": self._request_payload(
-                skill=request["skill"],
-                image=request.get("image"),
-                question=request.get("question"),
-                object=request.get("object"),
-                spatial_refs=request.get("spatial_refs"),
-                reasoning=request.get("reasoning", False),
-                settings=request.get("settings"),
-            ),
-        }
-        ground_truth = request.get("ground_truth")
-        if ground_truth is not None:
-            payload["ground_truth"] = dict(ground_truth)
-        return payload
-
     def rollouts(
         self,
         skill: Skill,
@@ -224,28 +204,22 @@ class Finetune:
         Returns the raw `/rollouts` response with `request`, `rollouts`, and
         optional `rewards`.
         """
-        request: RolloutRequest = {"skill": skill}
-        if image is not None:
-            request["image"] = image
-        if question is not None:
-            request["question"] = question
-        if object is not None:
-            request["object"] = object
-        if num_rollouts != 1:
-            request["num_rollouts"] = num_rollouts
-        if settings is not None:
-            request["settings"] = settings
-        if reasoning:
-            request["reasoning"] = reasoning
-        if spatial_refs is not None:
-            request["spatial_refs"] = list(spatial_refs)
+        payload: dict = {
+            "finetune_id": self.finetune_id,
+            "num_rollouts": num_rollouts,
+            "request": self._request_payload(
+                skill=skill,
+                image=image,
+                question=question,
+                object=object,
+                spatial_refs=spatial_refs,
+                reasoning=reasoning,
+                settings=settings,
+            ),
+        }
         if ground_truth is not None:
-            request["ground_truth"] = ground_truth
-        return self._request_json(
-            "POST",
-            "/rollouts",
-            payload=self._rollouts_payload(request),
-        )
+            payload["ground_truth"] = dict(ground_truth)
+        return self._request_json("POST", "/rollouts", payload=payload)
 
     def delete(self) -> None:
         self._request_json("DELETE", f"/finetunes/{self.finetune_id}")
@@ -286,8 +260,10 @@ class Finetune:
 
         def worker():
             try:
-                while not stop.is_set():
+                while True:
                     with requests_lock:
+                        if stop.is_set():
+                            return
                         try:
                             context, request = next(requests_iter)
                         except StopIteration:
@@ -301,9 +277,6 @@ class Finetune:
                                 except queue.Full:
                                     continue
                             return
-
-                    if stop.is_set():
-                        return
 
                     try:
                         response = self.rollouts(**request)
