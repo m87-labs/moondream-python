@@ -63,10 +63,6 @@ class FinetuneTests(unittest.TestCase):
             finetune_id="ft_123",
             name="demo-ft",
             rank=8,
-            max_retries=2,
-            retry_base_delay=0.01,
-            retry_max_delay=0.01,
-            timeout=0.01,
         )
 
     def test_ft_validates_constructor_inputs(self):
@@ -76,8 +72,6 @@ class FinetuneTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             ft(api_key="x", name="demo", finetune_id="ft_123")
 
-        with self.assertRaises(ValueError):
-            ft(api_key="x", name="demo", rank=8, max_retries=-1)
 
     def test_package_exposes_helper_types_under_md_types(self):
         self.assertTrue(hasattr(md, "ft"))
@@ -408,7 +402,6 @@ class FinetuneTests(unittest.TestCase):
                 "groups": [group],
                 "lr": 0.002,
             },
-            max_retries=0,
         )
 
     def test_request_json_retries_timeout_then_succeeds(self):
@@ -451,25 +444,6 @@ class FinetuneTests(unittest.TestCase):
                 result = self.client._request_json("POST", "/rollouts", payload={"x": 1})
 
         self.assertEqual(result, {"ok": True})
-
-    def test_train_step_does_not_retry_timeout(self):
-        group: RLGroup = {
-            "mode": "rl",
-            "request": {"skill": "query", "question": "What is this?"},
-            "rollouts": [_raw_rollout("query", {"answer": "A photo"})],
-            "rewards": [1.0],
-        }
-
-        with mock.patch(
-            "urllib.request.urlopen",
-            side_effect=urllib.error.URLError(socket.timeout("timed out")),
-        ) as mocked:
-            with mock.patch("time.sleep") as mocked_sleep:
-                with self.assertRaises(urllib.error.URLError):
-                    self.client.train_step([group])
-
-        self.assertEqual(mocked.call_count, 1)
-        mocked_sleep.assert_not_called()
 
     def test_rollout_stream_respects_concurrency_cap(self):
         active = {"count": 0, "max": 0}

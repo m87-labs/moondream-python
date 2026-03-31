@@ -64,6 +64,12 @@ def _is_retryable(exc: Exception) -> bool:
     return isinstance(exc, (TimeoutError, socket.timeout))
 
 
+_MAX_RETRIES = 5
+_RETRY_BASE_DELAY = 0.5
+_RETRY_MAX_DELAY = 8.0
+_REQUEST_TIMEOUT = 60.0
+
+
 class Finetune:
     def __init__(
         self,
@@ -73,29 +79,12 @@ class Finetune:
         finetune_id: str,
         name: str,
         rank: int,
-        max_retries: int = 5,
-        retry_base_delay: float = 0.5,
-        retry_max_delay: float = 8.0,
-        timeout: float = 60.0,
     ):
-        if max_retries < 0:
-            raise ValueError("max_retries must be non-negative")
-        if retry_base_delay < 0:
-            raise ValueError("retry_base_delay must be non-negative")
-        if retry_max_delay < 0:
-            raise ValueError("retry_max_delay must be non-negative")
-        if timeout <= 0:
-            raise ValueError("timeout must be positive")
-
         self.api_key = api_key
         self.endpoint = endpoint.rstrip("/")
         self.finetune_id = finetune_id
         self.name = name
         self.rank = rank
-        self.max_retries = max_retries
-        self.retry_base_delay = retry_base_delay
-        self.retry_max_delay = retry_max_delay
-        self.timeout = timeout
 
     def _headers(self, has_body: bool = False) -> Dict[str, str]:
         headers = {
@@ -115,7 +104,7 @@ class Finetune:
                 url = f"{url}?{urllib.parse.urlencode(items)}"
         return url
 
-    def _request_json_once(
+    def _request_json(
         self,
         method: str,
         path: str,
@@ -123,41 +112,26 @@ class Finetune:
         query: Optional[dict] = None,
     ) -> dict:
         data = None if payload is None else json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
-            self._url(path, query=query),
-            data=data,
-            headers=self._headers(has_body=payload is not None),
-            method=method,
-        )
-
-        with urllib.request.urlopen(req, timeout=self.timeout) as response:
-            body = response.read()
-            if not body:
-                return {}
-            return json.loads(body.decode("utf-8"))
-
-    def _backoff_delay(self, attempt: int) -> float:
-        max_delay = min(self.retry_max_delay, self.retry_base_delay * (2 ** attempt))
-        return random.uniform(0.0, max_delay)
-
-    def _request_json(
-        self,
-        method: str,
-        path: str,
-        payload: Optional[dict] = None,
-        query: Optional[dict] = None,
-        max_retries: Optional[int] = None,
-    ) -> dict:
-        retries = self.max_retries if max_retries is None else max_retries
         last_exc: Optional[Exception] = None
-        for attempt in range(retries + 1):
+        for attempt in range(_MAX_RETRIES + 1):
             try:
-                return self._request_json_once(method, path, payload=payload, query=query)
+                req = urllib.request.Request(
+                    self._url(path, query=query),
+                    data=data,
+                    headers=self._headers(has_body=payload is not None),
+                    method=method,
+                )
+                with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as response:
+                    body = response.read()
+                    if not body:
+                        return {}
+                    return json.loads(body.decode("utf-8"))
             except Exception as exc:
                 last_exc = exc
-                if not _is_retryable(exc) or attempt == retries:
+                if not _is_retryable(exc) or attempt == _MAX_RETRIES:
                     raise
-                time.sleep(self._backoff_delay(attempt))
+                max_delay = min(_RETRY_MAX_DELAY, _RETRY_BASE_DELAY * (2 ** attempt))
+                time.sleep(random.uniform(0.0, max_delay))
         raise last_exc  # unreachable, but keeps the type checker happy
 
     def _request_payload(
@@ -360,12 +334,7 @@ class Finetune:
             "groups": list(groups),
             "lr": lr,
         }
-        result = self._request_json(
-            "POST",
-            "/train_step",
-            payload=payload,
-            max_retries=0,
-        )
+        result = self._request_json("POST", "/train_step", payload=payload)
         return result
 
     def log_metrics(
@@ -425,10 +394,6 @@ def ft(
     rank: Optional[int] = None,
     finetune_id: Optional[str] = None,
     endpoint: str = DEFAULT_TUNING_ENDPOINT,
-    max_retries: int = 5,
-    retry_base_delay: float = 0.5,
-    retry_max_delay: float = 8.0,
-    timeout: float = 60.0,
 ) -> Finetune:
     if finetune_id is not None:
         if name is not None or rank is not None:
@@ -439,10 +404,6 @@ def ft(
             finetune_id=finetune_id,
             name="",
             rank=0,
-            max_retries=max_retries,
-            retry_base_delay=retry_base_delay,
-            retry_max_delay=retry_max_delay,
-            timeout=timeout,
         )
         result = client._request_json("GET", f"/finetunes/{finetune_id}")
         finetune: FinetuneInfo = result.get("finetune", result)
@@ -460,10 +421,6 @@ def ft(
         finetune_id="",
         name=name,
         rank=rank,
-        max_retries=max_retries,
-        retry_base_delay=retry_base_delay,
-        retry_max_delay=retry_max_delay,
-        timeout=timeout,
     )
     result = client._request_json(
         "POST",

@@ -26,8 +26,6 @@ import moondream as md
 API_KEY = os.environ["MOONDREAM_API_KEY"]
 
 QUESTION = "Is this rock, paper, or scissors? Respond with rock, paper, or scissors only."
-TRAIN_SETTINGS = {"temperature": 1.0, "top_p": 1.0, "max_tokens": 4}
-EVAL_SETTINGS = {"temperature": 0.0, "top_p": 1.0, "max_tokens": 4}
 
 STEPS = 20
 NUM_ROLLOUTS = 4
@@ -65,7 +63,7 @@ def evaluate(ft, examples: list[dict]) -> float:
             image=example["image"],
             question=QUESTION,
             num_rollouts=1,
-            settings=EVAL_SETTINGS,
+            settings={"temperature": 0.0, "max_tokens": 4},
         )
         answer = response["rollouts"][0]["output"].get("answer", "")
         correct += int(reward(answer, example["answer"]))
@@ -80,7 +78,7 @@ def make_requests(examples):
             "image": example["image"],
             "question": QUESTION,
             "num_rollouts": NUM_ROLLOUTS,
-            "settings": TRAIN_SETTINGS,
+            "settings": {"temperature": 1.0, "max_tokens": 4},
         }
 
 
