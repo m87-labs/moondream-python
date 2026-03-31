@@ -37,7 +37,7 @@ __version__ = _pkg_version("moondream")
 
 DEFAULT_TUNING_ENDPOINT = "https://api.moondream.ai/v1/tuning"
 
-_RETRY_STATUS_CODES = {408, 429, 500, 502, 503, 504, 524}
+_RETRY_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524}
 
 
 def _encode_image(image) -> Base64EncodedImage:
