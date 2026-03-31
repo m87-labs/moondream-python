@@ -26,8 +26,11 @@ from .types import (
     RLGroup,
     RolloutRequest,
     RolloutsResponse,
+    SFTTarget,
+    Skill,
     SkillRequest,
     SFTGroup,
+    SpatialRef,
     TrainStepOutput,
 )
 
@@ -264,27 +267,45 @@ class Finetune:
 
         raise FinetuneAPIError(f"{path} failed: {last_error}")
 
-    def _request_payload(self, request: RolloutRequest) -> SkillRequest:
-        payload: SkillRequest = {"skill": request.skill}
-        if request.image is not None:
-            payload["image_url"] = _encode_image(request.image).image_url
-        if request.question is not None:
-            payload["question"] = request.question
-        if request.object is not None:
-            payload["object"] = request.object
-        if request.spatial_refs is not None:
-            payload["spatial_refs"] = list(request.spatial_refs)
-        if request.reasoning:
+    def _request_payload(
+        self,
+        *,
+        skill: Skill,
+        image: Optional[Union[Image.Image, EncodedImage]] = None,
+        question: Optional[str] = None,
+        object: Optional[str] = None,
+        spatial_refs: Optional[Sequence[SpatialRef]] = None,
+        reasoning: bool = False,
+        settings: Optional[Mapping[str, object]] = None,
+    ) -> SkillRequest:
+        payload: SkillRequest = {"skill": skill}
+        if image is not None:
+            payload["image_url"] = _encode_image(image).image_url
+        if question is not None:
+            payload["question"] = question
+        if object is not None:
+            payload["object"] = object
+        if spatial_refs is not None:
+            payload["spatial_refs"] = list(spatial_refs)
+        if reasoning:
             payload["reasoning"] = True
-        if request.settings is not None:
-            payload["settings"] = dict(request.settings)
+        if settings is not None:
+            payload["settings"] = dict(settings)
         return payload
 
     def _rollouts_payload(self, request: RolloutRequest) -> dict:
         payload = {
             "finetune_id": self.finetune_id,
             "num_rollouts": request.num_rollouts,
-            "request": self._request_payload(request),
+            "request": self._request_payload(
+                skill=request.skill,
+                image=request.image,
+                question=request.question,
+                object=request.object,
+                spatial_refs=request.spatial_refs,
+                reasoning=request.reasoning,
+                settings=request.settings,
+            ),
         }
         if request.ground_truth is not None:
             payload["ground_truth"] = dict(request.ground_truth)
@@ -341,6 +362,30 @@ class Finetune:
         return self._run_async(
             self._batch_rollouts_async(requests_list, max_concurrency=max_concurrency)
         )
+
+    def sft_group(
+        self,
+        *,
+        skill: Skill,
+        targets: Sequence[SFTTarget],
+        image: Optional[Union[Image.Image, EncodedImage]] = None,
+        question: Optional[str] = None,
+        object: Optional[str] = None,
+        reasoning: bool = False,
+        spatial_refs: Optional[Sequence[SpatialRef]] = None,
+    ) -> SFTGroup:
+        return {
+            "mode": "sft",
+            "request": self._request_payload(
+                skill=skill,
+                image=image,
+                question=question,
+                object=object,
+                spatial_refs=spatial_refs,
+                reasoning=reasoning,
+            ),
+            "targets": list(targets),
+        }
 
     async def _batch_rollouts_async(
         self,

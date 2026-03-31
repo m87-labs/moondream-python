@@ -237,6 +237,22 @@ class FinetuneTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.client.batch_rollouts([], max_concurrency=0)
 
+    def test_sft_group_builds_http_shaped_group(self):
+        group = self.client.sft_group(
+            skill="query",
+            image=self.image,
+            question="What is happening?",
+            targets=[{"answer": "People are smiling for a photo."}],
+            reasoning=True,
+        )
+
+        self.assertEqual(group["mode"], "sft")
+        self.assertEqual(group["request"]["skill"], "query")
+        self.assertEqual(group["request"]["question"], "What is happening?")
+        self.assertTrue(group["request"]["reasoning"])
+        self.assertEqual(group["targets"], [{"answer": "People are smiling for a photo."}])
+        self.assertTrue(group["request"]["image_url"].startswith("data:image/jpeg;base64,"))
+
     def test_train_step_builds_mixed_rl_and_sft_payload(self):
         raw_rollout = _raw_rollout("query", {"answer": "A sign"})
         rl_group: RLGroup = {
@@ -249,15 +265,12 @@ class FinetuneTests(unittest.TestCase):
             "rollouts": [raw_rollout],
             "rewards": [1.0],
         }
-        sft_group: SFTGroup = {
-            "mode": "sft",
-            "request": {
-                "skill": "query",
-                "question": "What country is this?",
-                "image_url": "data:image/jpeg;base64,abc",
-            },
-            "targets": [{"answer": "United States"}],
-        }
+        sft_group = self.client.sft_group(
+            skill="query",
+            image=self.image,
+            question="What country is this?",
+            targets=[{"answer": "United States"}],
+        )
 
         with mock.patch.object(
             self.client, "_request_json", return_value={"step": 1, "applied": True}
