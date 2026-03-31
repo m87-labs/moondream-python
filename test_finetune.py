@@ -331,25 +331,31 @@ class FinetuneTests(unittest.TestCase):
             },
         )
 
-    def test_log_metrics_validates_inputs(self):
-        with self.assertRaises(ValueError):
-            self.client.log_metrics(-1, {"eval/score": 1.0})
+    def test_log_metrics_passes_inputs_through_without_local_validation(self):
+        with mock.patch.object(
+            self.client,
+            "_request_json",
+            return_value={"ok": True},
+        ) as mocked:
+            self.client.log_metrics(
+                -1,
+                {
+                    "bad name": 1.0,
+                    "sys/loss": 2.0,
+                },
+            )
 
-        with self.assertRaises(ValueError):
-            self.client.log_metrics(1, {})
-
-        with self.assertRaises(ValueError):
-            self.client.log_metrics(1, {"bad name": 1.0})
-
-        with self.assertRaises(ValueError):
-            self.client.log_metrics(1, {"sys/loss": 1.0})
-
-        with self.assertRaises(ValueError):
-            self.client.log_metrics(1, {"eval/score": float("nan")})
-
-        too_many = {f"eval/m{i}": float(i) for i in range(101)}
-        with self.assertRaises(ValueError):
-            self.client.log_metrics(1, too_many)
+        mocked.assert_called_once_with(
+            "POST",
+            "/finetunes/ft_123/metrics",
+            payload={
+                "step": -1,
+                "metrics": {
+                    "bad name": 1.0,
+                    "sys/loss": 2.0,
+                },
+            },
+        )
 
     def test_public_rollout_to_train_step_handoff(self):
         rollout_response = {
@@ -387,29 +393,29 @@ class FinetuneTests(unittest.TestCase):
         self.assertEqual(train_payload["groups"][0]["rollouts"], rollout_response["rollouts"])
         self.assertEqual(train_payload["groups"][0]["rewards"], [1.0])
 
-    def test_train_step_rejects_rl_group_without_rewards(self):
+    def test_train_step_passes_groups_through_without_local_validation(self):
         group: RLGroup = {
             "mode": "rl",
             "request": {"skill": "query", "question": "What is this?"},
             "rollouts": [_raw_rollout("query", {"answer": "A photo"})],
         }
 
-        with self.assertRaises(ValueError):
-            self.client.train_step([group])
+        with mock.patch.object(
+            self.client, "_request_json", return_value={"step": 7, "applied": True}
+        ) as mocked:
+            result = self.client.train_step([group])
 
-    def test_train_step_rejects_mutated_rewards_length(self):
-        group: RLGroup = {
-            "mode": "rl",
-            "request": {"skill": "query", "question": "What is this?"},
-            "rollouts": [
-                _raw_rollout("query", {"answer": "A photo"}),
-                _raw_rollout("query", {"answer": "A drawing"}),
-            ],
-            "rewards": [1.0],
-        }
-
-        with self.assertRaises(ValueError):
-            self.client.train_step([group])
+        self.assertEqual(result["step"], 7)
+        mocked.assert_called_once_with(
+            "POST",
+            "/train_step",
+            payload={
+                "finetune_id": "ft_123",
+                "groups": [group],
+                "lr": 0.002,
+            },
+            max_retries=0,
+        )
 
     def test_request_json_retries_timeout_then_succeeds(self):
         attempts = {"count": 0}
@@ -566,9 +572,19 @@ class FinetuneTests(unittest.TestCase):
         self.assertEqual(len(started), 2)
         self.assertCountEqual(started, ["q0", "q1"])
 
-    def test_list_checkpoints_validates_limit(self):
-        with self.assertRaises(ValueError):
+    def test_list_checkpoints_pass_limit_through_without_local_validation(self):
+        with mock.patch.object(
+            self.client,
+            "_request_json",
+            return_value={"checkpoints": [], "has_more": False},
+        ) as mocked:
             self.client.list_checkpoints(limit=0)
+
+        mocked.assert_called_once_with(
+            "GET",
+            "/finetunes/ft_123/checkpoints",
+            query={"limit": 0, "cursor": None},
+        )
 
 
 if __name__ == "__main__":

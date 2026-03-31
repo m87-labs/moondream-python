@@ -1,9 +1,7 @@
 import asyncio
 import base64
 import json
-import math
 import random
-import re
 import socket
 import threading
 import time
@@ -38,7 +36,6 @@ __version__ = _pkg_version("moondream")
 
 DEFAULT_TUNING_ENDPOINT = "https://api.moondream.ai/v1/tuning"
 
-_METRIC_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_/-]+$")
 _RETRY_STATUS_CODES = {408, 429, 500, 502, 503, 504, 524}
 _TRAIN_STEP_OUTPUT_KEYS = (
     "step",
@@ -433,33 +430,9 @@ class Finetune:
         groups: Sequence[Union[RLGroup, SFTGroup]],
         lr: float = 0.002,
     ) -> TrainStepOutput:
-        if not groups:
-            raise ValueError("train_step requires at least one group")
-
-        payload_groups = []
-        for group in groups:
-            mode = group.get("mode")
-            if mode == "rl":
-                rewards = group.get("rewards")
-                rollouts = group.get("rollouts")
-                if rewards is None:
-                    raise ValueError("RLGroup rewards must be set before train_step")
-                if rollouts is None:
-                    raise ValueError("RLGroup requires rollouts")
-                if len(rewards) != len(rollouts):
-                    raise ValueError("rewards must match rollouts length")
-                payload_groups.append(group)
-                continue
-
-            if mode == "sft":
-                payload_groups.append(group)
-                continue
-
-            raise ValueError("train_step groups must have mode 'rl' or 'sft'")
-
         payload = {
             "finetune_id": self.finetune_id,
-            "groups": payload_groups,
+            "groups": list(groups),
             "lr": lr,
         }
         result = self._request_json(
@@ -489,34 +462,10 @@ class Finetune:
                 },
             )
         """
-        if isinstance(step, bool) or not isinstance(step, int) or step < 0:
-            raise ValueError("step must be a non-negative integer")
-
-        metrics_dict = dict(metrics)
-        if not metrics_dict:
-            raise ValueError("metrics must include at least one entry")
-        if len(metrics_dict) > 100:
-            raise ValueError("metrics cannot include more than 100 entries")
-
-        payload_metrics = {}
-        for name, value in metrics_dict.items():
-            if not _METRIC_NAME_PATTERN.fullmatch(name):
-                raise ValueError(
-                    "metric names must use only letters, numbers, underscores, slashes, or hyphens"
-                )
-            if name.startswith("sys/") or name.startswith("usr/"):
-                raise ValueError("metric names cannot start with sys/ or usr/")
-            if isinstance(value, bool) or not isinstance(value, (int, float)):
-                raise ValueError("metric values must be finite numbers")
-            metric_value = float(value)
-            if not math.isfinite(metric_value):
-                raise ValueError("metric values must be finite numbers")
-            payload_metrics[name] = metric_value
-
         return self._request_json(
             "POST",
             f"/finetunes/{self.finetune_id}/metrics",
-            payload={"step": step, "metrics": payload_metrics},
+            payload={"step": step, "metrics": dict(metrics)},
         )
 
     def list_checkpoints(
@@ -524,8 +473,6 @@ class Finetune:
         limit: int = 50,
         cursor: Optional[str] = None,
     ) -> CheckpointListOutput:
-        if limit < 1 or limit > 100:
-            raise ValueError("limit must be between 1 and 100")
         return self._request_json(
             "GET",
             f"/finetunes/{self.finetune_id}/checkpoints",
@@ -544,8 +491,6 @@ class Finetune:
         )
 
     def model(self, step: int) -> str:
-        if step < 0:
-            raise ValueError("step must be non-negative")
         return f"moondream3-preview/{self.finetune_id}@{step}"
 
     def _run_async(self, coro):
