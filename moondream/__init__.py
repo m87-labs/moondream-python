@@ -2,6 +2,8 @@ from importlib.metadata import version as _pkg_version
 from typing import Optional
 
 from .cloud_vl import CloudVL
+from .finetune import DEFAULT_TUNING_ENDPOINT, FinetuneAPIError, ft
+from .types import RLGroup, RolloutSpec, SFTGroup
 
 __version__ = _pkg_version("moondream")
 
@@ -34,4 +36,14 @@ def vl(
     return CloudVL(api_key=api_key, endpoint=endpoint, model=model, **kwargs)
 
 
-__all__ = ["vl", "__version__"]
+__all__ = [
+    "DEFAULT_ENDPOINT",
+    "DEFAULT_TUNING_ENDPOINT",
+    "FinetuneAPIError",
+    "RLGroup",
+    "RolloutSpec",
+    "SFTGroup",
+    "ft",
+    "vl",
+    "__version__",
+]

@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field, replace
+from typing import Generator, List, Literal, Optional, Sequence, TypedDict, Union
+
 from PIL import Image
-from dataclasses import dataclass
-from typing import Generator, List, TypedDict, Union, Optional, Literal
 
 
 @dataclass
@@ -20,6 +21,17 @@ SamplingSettings = TypedDict(
     total=False,
 )
 
+FinetuneSamplingSettings = TypedDict(
+    "FinetuneSamplingSettings",
+    {
+        "temperature": float,
+        "top_p": float,
+        "max_tokens": int,
+        "max_objects": int,
+    },
+    total=False,
+)
+
 CaptionOutput = TypedDict(
     "CaptionOutput", {"caption": Union[str, Generator[str, None, None]]}
 )
@@ -29,25 +41,25 @@ ReasoningGrounding = TypedDict(
     {
         "start_idx": int,
         "end_idx": int,
-        "points": List[List[int]]  # List of [x, y] coordinate pairs
-    }
+        "points": List[List[int]],
+    },
 )
 
 Reasoning = TypedDict(
     "Reasoning",
     {
         "text": str,
-        "grounding": List[ReasoningGrounding]
-    }
+        "grounding": List[ReasoningGrounding],
+    },
 )
 
 QueryOutput = TypedDict(
-    "QueryOutput", 
+    "QueryOutput",
     {
-        "answer": Union[str, Generator[str, None, None]], 
-        "reasoning": Optional[Reasoning]
+        "answer": Union[str, Generator[str, None, None]],
+        "reasoning": Optional[Reasoning],
     },
-    total=False
+    total=False,
 )
 
 Region = TypedDict(
@@ -82,6 +94,193 @@ SegmentStreamChunk = TypedDict(
 )
 
 SegmentStreamOutput = Generator[SegmentStreamChunk, None, None]
+
+QueryFinetuneRequest = TypedDict(
+    "QueryFinetuneRequest",
+    {
+        "skill": Literal["query"],
+        "question": str,
+        "image": Optional[Union[Image.Image, EncodedImage]],
+        "spatial_refs": List[SpatialRef],
+        "reasoning": bool,
+        "settings": FinetuneSamplingSettings,
+    },
+    total=False,
+)
+
+PointFinetuneRequest = TypedDict(
+    "PointFinetuneRequest",
+    {
+        "skill": Literal["point"],
+        "object": str,
+        "image": Union[Image.Image, EncodedImage],
+        "settings": FinetuneSamplingSettings,
+    },
+    total=False,
+)
+
+DetectFinetuneRequest = TypedDict(
+    "DetectFinetuneRequest",
+    {
+        "skill": Literal["detect"],
+        "object": str,
+        "image": Union[Image.Image, EncodedImage],
+        "settings": FinetuneSamplingSettings,
+    },
+    total=False,
+)
+
+FinetuneRequest = Union[
+    QueryFinetuneRequest,
+    PointFinetuneRequest,
+    DetectFinetuneRequest,
+]
+
+PointGroundTruth = TypedDict(
+    "PointGroundTruth",
+    {
+        "points": List[Point],
+        "boxes": List[Region],
+    },
+    total=False,
+)
+
+DetectGroundTruth = TypedDict("DetectGroundTruth", {"boxes": List[Region]})
+
+FinetuneGroundTruth = Union[PointGroundTruth, DetectGroundTruth]
+
+QueryTarget = TypedDict(
+    "QueryTarget",
+    {
+        "answer": str,
+        "reasoning": Reasoning,
+    },
+    total=False,
+)
+
+PointTarget = TypedDict(
+    "PointTarget",
+    {
+        "points": List[Point],
+        "boxes": List[Region],
+    },
+    total=False,
+)
+
+DetectTarget = TypedDict("DetectTarget", {"boxes": List[Region]})
+
+SFTTarget = Union[QueryTarget, PointTarget, DetectTarget]
+
+RolloutOutput = TypedDict(
+    "RolloutOutput",
+    {
+        "answer": str,
+        "reasoning": Optional[Reasoning],
+        "points": List[Point],
+        "objects": List[Region],
+    },
+    total=False,
+)
+
+Rollout = TypedDict(
+    "Rollout",
+    {
+        "skill": Literal["query", "point", "detect"],
+        "finish_reason": str,
+        "output": RolloutOutput,
+        "answer_tokens": List[int],
+        "thinking_tokens": List[int],
+        "has_answer_separator": bool,
+        "coords": List[object],
+        "sizes": List[object],
+    },
+    total=False,
+)
+
+TrainStepOutput = TypedDict(
+    "TrainStepOutput",
+    {
+        "step": int,
+        "applied": bool,
+        "kl": Optional[float],
+        "router_kl": Optional[float],
+        "grad_norm": Optional[float],
+        "sft_loss": Optional[float],
+        "reward_mean": Optional[float],
+        "reward_std": Optional[float],
+    },
+    total=False,
+)
+
+FinetuneInfo = TypedDict(
+    "FinetuneInfo",
+    {
+        "finetune_id": str,
+        "name": str,
+        "rank": int,
+        "created_at_ms": int,
+        "updated_at_ms": int,
+    },
+    total=False,
+)
+
+CheckpointInfo = TypedDict(
+    "CheckpointInfo",
+    {
+        "checkpoint_id": str,
+        "finetune_id": str,
+        "step": int,
+        "expires_at_ms": Optional[int],
+        "created_at_ms": int,
+        "updated_at_ms": int,
+    },
+    total=False,
+)
+
+CheckpointListOutput = TypedDict(
+    "CheckpointListOutput",
+    {
+        "checkpoints": List[CheckpointInfo],
+        "next_cursor": Optional[str],
+        "has_more": bool,
+    },
+    total=False,
+)
+
+CheckpointDownload = TypedDict(
+    "CheckpointDownload",
+    {
+        "url": str,
+        "expires_in": int,
+    },
+)
+
+
+@dataclass(frozen=True)
+class RolloutSpec:
+    request: FinetuneRequest
+    num_rollouts: int = 1
+    ground_truth: Optional[FinetuneGroundTruth] = None
+
+
+@dataclass(frozen=True)
+class RLGroup:
+    request: FinetuneRequest
+    rollouts: List[Rollout]
+    rewards: Optional[List[float]] = None
+    _request_payload: Optional[dict] = field(default=None, repr=False, compare=False)
+
+    def with_rewards(self, rewards: Sequence[float]) -> "RLGroup":
+        rewards_list = list(rewards)
+        if len(rewards_list) != len(self.rollouts):
+            raise ValueError("rewards must match rollouts length")
+        return replace(self, rewards=rewards_list)
+
+
+@dataclass(frozen=True)
+class SFTGroup:
+    request: FinetuneRequest
+    targets: List[SFTTarget]
 
 
 class VLM(ABC):
