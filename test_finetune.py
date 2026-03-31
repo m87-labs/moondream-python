@@ -387,6 +387,26 @@ class FinetuneTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.client.train_step([rl_group])
 
+    def test_train_step_rejects_mutated_rollouts_after_generation(self):
+        raw_rollouts = [
+            _raw_rollout("query", {"answer": "A photo"}),
+            _raw_rollout("query", {"answer": "A drawing"}),
+        ]
+        rl_group = RLGroup(
+            skill="query",
+            question="What is this?",
+            rollouts=[{"answer": "A photo"}, {"answer": "A drawing"}],
+            _request_payload={"skill": "query", "question": "What is this?"},
+            _rollouts_payload=raw_rollouts,
+        )
+        rl_group.rollouts = rl_group.rollouts[:1]
+        rl_group.rewards = [1.0]
+
+        with self.assertRaisesRegex(
+            ValueError, "RLGroup rollouts must not be mutated"
+        ):
+            self.client.train_step([rl_group])
+
     def test_detect_rollouts_allow_empty_boxes_ground_truth(self):
         response = {
             "request": {
