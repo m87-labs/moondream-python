@@ -237,8 +237,8 @@ class FinetuneTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.client.batch_rollouts([], max_concurrency=0)
 
-    def test_sft_group_builds_http_shaped_group(self):
-        group = self.client.sft_group(
+    def test_build_sft_group_builds_http_shaped_group(self):
+        group = self.client.build_sft_group(
             skill="query",
             image=self.image,
             question="What is happening?",
@@ -265,7 +265,7 @@ class FinetuneTests(unittest.TestCase):
             "rollouts": [raw_rollout],
             "rewards": [1.0],
         }
-        sft_group = self.client.sft_group(
+        sft_group = self.client.build_sft_group(
             skill="query",
             image=self.image,
             question="What country is this?",

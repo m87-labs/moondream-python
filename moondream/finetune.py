@@ -363,7 +363,7 @@ class Finetune:
             self._batch_rollouts_async(requests_list, max_concurrency=max_concurrency)
         )
 
-    def sft_group(
+    def build_sft_group(
         self,
         *,
         skill: Skill,
