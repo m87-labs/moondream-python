@@ -291,13 +291,13 @@ class Finetune:
                 yield item
         finally:
             stop.set()
-            while True:
-                try:
-                    result_queue.get_nowait()
-                except queue.Empty:
-                    break
             for t in threads:
-                t.join(timeout=5.0)
+                while t.is_alive():
+                    try:
+                        result_queue.get_nowait()
+                    except queue.Empty:
+                        pass
+                    t.join(timeout=0.1)
 
     def build_sft_group(
         self,
