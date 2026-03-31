@@ -247,7 +247,7 @@ SFTGroup = TypedDict(
     {
         "mode": Literal["sft"],
         "request": SkillRequest,
-        "targets": List[SFTTarget],
+        "target": SFTTarget,
     },
     total=False,
 )

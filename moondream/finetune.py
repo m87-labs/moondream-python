@@ -303,7 +303,7 @@ class Finetune:
         self,
         *,
         skill: Skill,
-        targets: Sequence[SFTTarget],
+        target: SFTTarget,
         image: Optional[Union[Image.Image, EncodedImage]] = None,
         question: Optional[str] = None,
         object: Optional[str] = None,
@@ -320,7 +320,7 @@ class Finetune:
                 spatial_refs=spatial_refs,
                 reasoning=reasoning,
             ),
-            "targets": list(targets),
+            "target": target,
         }
 
     def train_step(

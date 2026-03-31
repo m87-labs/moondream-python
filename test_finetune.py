@@ -232,7 +232,7 @@ class FinetuneTests(unittest.TestCase):
             skill="query",
             image=self.image,
             question="What is happening?",
-            targets=[{"answer": "People are smiling for a photo."}],
+            target={"answer": "People are smiling for a photo."},
             reasoning=True,
         )
 
@@ -240,7 +240,7 @@ class FinetuneTests(unittest.TestCase):
         self.assertEqual(group["request"]["skill"], "query")
         self.assertEqual(group["request"]["question"], "What is happening?")
         self.assertTrue(group["request"]["reasoning"])
-        self.assertEqual(group["targets"], [{"answer": "People are smiling for a photo."}])
+        self.assertEqual(group["target"], {"answer": "People are smiling for a photo."})
         self.assertTrue(group["request"]["image_url"].startswith("data:image/jpeg;base64,"))
 
     def test_train_step_builds_mixed_rl_and_sft_payload(self):
@@ -259,7 +259,7 @@ class FinetuneTests(unittest.TestCase):
             skill="query",
             image=self.image,
             question="What country is this?",
-            targets=[{"answer": "United States"}],
+            target={"answer": "United States"},
         )
 
         with mock.patch.object(
@@ -275,7 +275,7 @@ class FinetuneTests(unittest.TestCase):
         self.assertEqual(payload["groups"][0]["rollouts"], [raw_rollout])
         self.assertEqual(payload["groups"][0]["rewards"], [1.0])
         self.assertEqual(payload["groups"][1]["mode"], "sft")
-        self.assertEqual(payload["groups"][1]["targets"], [{"answer": "United States"}])
+        self.assertEqual(payload["groups"][1]["target"], {"answer": "United States"})
 
     def test_train_step_returns_raw_response(self):
         rl_group: RLGroup = {
