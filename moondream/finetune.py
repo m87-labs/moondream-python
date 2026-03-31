@@ -74,7 +74,7 @@ class Finetune:
     def __init__(
         self,
         *,
-        api_key: Optional[str],
+        api_key: str,
         endpoint: str,
         finetune_id: str,
         name: str,
@@ -89,11 +89,10 @@ class Finetune:
     def _headers(self, has_body: bool = False) -> Dict[str, str]:
         headers = {
             "User-Agent": f"moondream-python/{__version__}",
+            "X-Moondream-Auth": self.api_key,
         }
         if has_body:
             headers["Content-Type"] = "application/json"
-        if self.api_key:
-            headers["X-Moondream-Auth"] = self.api_key
         return headers
 
     def _url(self, path: str, query: Optional[dict] = None) -> str:
@@ -388,7 +387,7 @@ class Finetune:
 
 
 def ft(
-    api_key: Optional[str] = None,
+    api_key: str,
     *,
     name: Optional[str] = None,
     rank: Optional[int] = None,
