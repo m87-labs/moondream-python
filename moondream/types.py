@@ -234,14 +234,6 @@ CheckpointListOutput = TypedDict(
     total=False,
 )
 
-OkResponse = TypedDict(
-    "OkResponse",
-    {
-        "ok": bool,
-    },
-    total=False,
-)
-
 SaveCheckpointOutput = TypedDict(
     "SaveCheckpointOutput",
     {
