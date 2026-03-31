@@ -273,18 +273,6 @@ class Finetune:
 
         raise FinetuneAPIError(f"{path} failed: {last_error}")
 
-    def _validate_rollout_settings(
-        self, skill: str, settings: Optional[SamplingSettings]
-    ) -> Optional[dict]:
-        if settings is None:
-            return None
-        settings_dict = dict(settings)
-        if skill == "query" and "max_objects" in settings_dict:
-            raise ValueError("query settings do not accept max_objects")
-        if skill in ("point", "detect") and "max_tokens" in settings_dict:
-            raise ValueError(f"{skill} settings do not accept max_tokens")
-        return settings_dict or None
-
     def _serialize_request(
         self,
         skill: str,
@@ -310,7 +298,7 @@ class Finetune:
                 payload["spatial_refs"] = list(spatial_refs)
             if reasoning:
                 payload["reasoning"] = True
-            settings_payload = self._validate_rollout_settings("query", settings)
+            settings_payload = dict(settings) if settings is not None else None
             if settings_payload is not None:
                 payload["settings"] = settings_payload
             return payload
@@ -326,7 +314,7 @@ class Finetune:
                 "object": object,
                 "image_url": _encode_image(image).image_url,
             }
-            settings_payload = self._validate_rollout_settings("point", settings)
+            settings_payload = dict(settings) if settings is not None else None
             if settings_payload is not None:
                 payload["settings"] = settings_payload
             return payload
@@ -342,7 +330,7 @@ class Finetune:
                 "object": object,
                 "image_url": _encode_image(image).image_url,
             }
-            settings_payload = self._validate_rollout_settings("detect", settings)
+            settings_payload = dict(settings) if settings is not None else None
             if settings_payload is not None:
                 payload["settings"] = settings_payload
             return payload
@@ -482,6 +470,10 @@ class Finetune:
         reasoning: bool = False,
         spatial_refs: Optional[Sequence[SpatialRef]] = None,
     ) -> RLGroup:
+        """Generate query rollouts.
+
+        Query settings typically use `temperature`, `top_p`, and `max_tokens`.
+        """
         if question is None:
             raise ValueError("question parameter is required")
         return self._rollouts_from_group(
@@ -503,6 +495,10 @@ class Finetune:
         settings: Optional[SamplingSettings] = None,
         ground_truth: Optional[PointGroundTruth] = None,
     ) -> RLGroup:
+        """Generate point rollouts.
+
+        Point settings typically use `temperature`, `top_p`, and `max_objects`.
+        """
         return self._rollouts_from_group(
             RolloutGroup.point(
                 image=image,
@@ -521,6 +517,10 @@ class Finetune:
         settings: Optional[SamplingSettings] = None,
         ground_truth: Optional[DetectGroundTruth] = None,
     ) -> RLGroup:
+        """Generate detect rollouts.
+
+        Detect settings typically use `temperature`, `top_p`, and `max_objects`.
+        """
         return self._rollouts_from_group(
             RolloutGroup.detect(
                 image=image,

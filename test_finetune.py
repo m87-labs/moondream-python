@@ -182,21 +182,31 @@ class FinetuneTests(unittest.TestCase):
         self.assertNotIn("output", rl_group.rollouts[0])
         self.assertEqual(rl_group.question, "What is happening?")
 
-    def test_query_rollouts_reject_invalid_settings(self):
-        with self.assertRaises(ValueError):
+    def test_query_rollouts_pass_settings_through(self):
+        response = {"request": {"skill": "query", "question": "What is here?"}, "rollouts": []}
+
+        with mock.patch.object(self.client, "_request_json", return_value=response) as mocked:
             self.client.query_rollouts(
                 image=self.image,
                 question="What is here?",
                 settings={"max_objects": 2},
             )
 
-    def test_detect_rollouts_reject_invalid_settings(self):
-        with self.assertRaises(ValueError):
+        payload = mocked.call_args.kwargs["payload"]
+        self.assertEqual(payload["request"]["settings"]["max_objects"], 2)
+
+    def test_detect_rollouts_pass_settings_through(self):
+        response = {"request": {"skill": "detect", "object": "vehicles"}, "rollouts": []}
+
+        with mock.patch.object(self.client, "_request_json", return_value=response) as mocked:
             self.client.detect_rollouts(
                 self.image,
                 "vehicles",
                 settings={"max_tokens": 16},
             )
+
+        payload = mocked.call_args.kwargs["payload"]
+        self.assertEqual(payload["request"]["settings"]["max_tokens"], 16)
 
     def test_rollouts_reject_unknown_encoded_image(self):
         class FakeEncodedImage(EncodedImage):
