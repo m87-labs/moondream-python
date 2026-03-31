@@ -805,11 +805,6 @@ def _validate_name(name: str):
         raise ValueError("name must use only alphanumeric characters, hyphens, or underscores")
 
 
-def _validate_rank(rank: int):
-    if rank not in {8, 16, 24, 32}:
-        raise ValueError("rank must be one of 8, 16, 24, or 32")
-
-
 def ft(
     api_key: Optional[str] = None,
     *,
@@ -847,7 +842,6 @@ def ft(
         raise ValueError("ft requires either finetune_id or both name and rank")
 
     _validate_name(name)
-    _validate_rank(rank)
 
     client = Finetune(
         api_key=api_key,

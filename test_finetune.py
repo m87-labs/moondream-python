@@ -78,9 +78,6 @@ class FinetuneTests(unittest.TestCase):
             ft(api_key="x", name="bad name", rank=8)
 
         with self.assertRaises(ValueError):
-            ft(api_key="x", name="demo", rank=12)
-
-        with self.assertRaises(ValueError):
             ft(api_key="x", name="demo", rank=8, max_retries=-1)
 
     def test_ft_binds_existing_finetune(self):
@@ -113,17 +110,17 @@ class FinetuneTests(unittest.TestCase):
             client = ft(
                 api_key="x",
                 name="new-ft",
-                rank=8,
+                rank=12,
                 endpoint="https://api.example.test/v1/tuning",
             )
 
         self.assertEqual(client.finetune_id, "ft_789")
         self.assertEqual(client.name, "new-ft")
-        self.assertEqual(client.rank, 8)
+        self.assertEqual(client.rank, 12)
         mocked.assert_called_once_with(
             "POST",
             "/finetunes",
-            payload={"name": "new-ft", "rank": 8},
+            payload={"name": "new-ft", "rank": 12},
         )
 
     def test_query_rollouts_requires_question(self):
