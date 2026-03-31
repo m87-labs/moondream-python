@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Generator, List, Literal, Optional, Sequence, TypedDict, Union
+from typing import Generator, Generic, List, Literal, Optional, Sequence, TypeVar, TypedDict, Union
 
 from PIL import Image
 
@@ -151,6 +151,7 @@ _RawRollout = TypedDict(
 )
 
 RolloutOutput = Union[QueryOutput, PointOutput, DetectOutput]
+RolloutOutputT = TypeVar("RolloutOutputT")
 
 TrainStepOutput = TypedDict(
     "TrainStepOutput",
@@ -163,6 +164,16 @@ TrainStepOutput = TypedDict(
         "sft_loss": Optional[float],
         "reward_mean": Optional[float],
         "reward_std": Optional[float],
+    },
+    total=False,
+)
+
+MetricsLogOutput = TypedDict(
+    "MetricsLogOutput",
+    {
+        "ok": bool,
+        "step": int,
+        "logged_count": int,
     },
     total=False,
 )
@@ -275,9 +286,9 @@ class RolloutGroup:
 
 
 @dataclass
-class RLGroup:
+class RLGroup(Generic[RolloutOutputT]):
     skill: Literal["query", "point", "detect"]
-    rollouts: List[RolloutOutput]
+    rollouts: List[RolloutOutputT]
     image: Optional[Union[Image.Image, EncodedImage]] = None
     question: Optional[str] = None
     object: Optional[str] = None

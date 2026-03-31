@@ -283,6 +283,53 @@ class FinetuneTests(unittest.TestCase):
 
         self.assertEqual(result, {"step": 1, "applied": True})
 
+    def test_log_metrics_builds_payload_and_returns_response(self):
+        with mock.patch.object(
+            self.client,
+            "_request_json",
+            return_value={"ok": True, "step": 100, "logged_count": 2},
+        ) as mocked:
+            result = self.client.log_metrics(
+                100,
+                {
+                    "eval/country_match": 0.63,
+                    "eval/token_f1": 0.64,
+                },
+            )
+
+        self.assertEqual(result, {"ok": True, "step": 100, "logged_count": 2})
+        mocked.assert_called_once_with(
+            "POST",
+            "/finetunes/ft_123/metrics",
+            payload={
+                "step": 100,
+                "metrics": {
+                    "eval/country_match": 0.63,
+                    "eval/token_f1": 0.64,
+                },
+            },
+        )
+
+    def test_log_metrics_validates_inputs(self):
+        with self.assertRaises(ValueError):
+            self.client.log_metrics(-1, {"eval/score": 1.0})
+
+        with self.assertRaises(ValueError):
+            self.client.log_metrics(1, {})
+
+        with self.assertRaises(ValueError):
+            self.client.log_metrics(1, {"bad name": 1.0})
+
+        with self.assertRaises(ValueError):
+            self.client.log_metrics(1, {"sys/loss": 1.0})
+
+        with self.assertRaises(ValueError):
+            self.client.log_metrics(1, {"eval/score": float("nan")})
+
+        too_many = {f"eval/m{i}": float(i) for i in range(101)}
+        with self.assertRaises(ValueError):
+            self.client.log_metrics(1, too_many)
+
     def test_public_rollout_to_train_step_handoff(self):
         raw_rollout = _raw_rollout("query", {"answer": "People are socializing."})
         rollout_response = {

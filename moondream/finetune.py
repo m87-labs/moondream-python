@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import json
+import math
 import random
 import re
 import socket
@@ -11,7 +12,7 @@ import urllib.parse
 import urllib.request
 from io import BytesIO
 from importlib.metadata import version as _pkg_version
-from typing import Dict, List, Optional, Sequence, Union
+from typing import Dict, List, Mapping, Optional, Sequence, Union, cast
 
 from PIL import Image
 
@@ -20,15 +21,20 @@ from .types import (
     CheckpointInfo,
     CheckpointListOutput,
     DetectGroundTruth,
+    DetectOutput,
     DetectTarget,
     FinetuneGroundTruth,
     FinetuneInfo,
     EncodedImage,
+    MetricsLogOutput,
+    PointOutput,
     PointGroundTruth,
     PointTarget,
+    QueryOutput,
     QueryTarget,
     RLGroup,
     RolloutGroup,
+    RolloutOutput,
     SamplingSettings,
     SFTGroup,
     SpatialRef,
@@ -40,6 +46,7 @@ __version__ = _pkg_version("moondream")
 DEFAULT_TUNING_ENDPOINT = "https://api.moondream.ai/v1/tuning"
 
 _NAME_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
+_METRIC_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_/-]+$")
 _RETRY_STATUS_CODES = {408, 429, 500, 502, 503, 504, 524}
 _TRAIN_STEP_OUTPUT_KEYS = (
     "step",
@@ -405,7 +412,7 @@ class Finetune:
 
     def _serialize_group_request(
         self,
-        group: Union[RolloutGroup, RLGroup, SFTGroup],
+        group: Union[RolloutGroup, RLGroup[RolloutOutput], SFTGroup],
     ) -> dict:
         return self._serialize_request(
             group.skill,
@@ -422,7 +429,7 @@ class Finetune:
         group: RolloutGroup,
         request_payload: dict,
         result: dict,
-    ) -> RLGroup:
+    ) -> RLGroup[RolloutOutput]:
         rollouts_payload = result.get("rollouts", [])
         return RLGroup(
             skill=group.skill,
@@ -438,7 +445,7 @@ class Finetune:
             _rollouts_payload=rollouts_payload,
         )
 
-    def _rollouts_from_group(self, group: RolloutGroup) -> RLGroup:
+    def _rollouts_from_group(self, group: RolloutGroup) -> RLGroup[RolloutOutput]:
         if group.num_rollouts < 1 or group.num_rollouts > 16:
             raise ValueError("num_rollouts must be between 1 and 16")
 
@@ -468,7 +475,7 @@ class Finetune:
         settings: Optional[SamplingSettings] = None,
         reasoning: bool = False,
         spatial_refs: Optional[Sequence[SpatialRef]] = None,
-    ) -> RLGroup:
+    ) -> RLGroup[QueryOutput]:
         """Generate query rollouts.
 
         Query settings typically use `temperature`, `top_p`, and `max_tokens`.
@@ -480,7 +487,7 @@ class Finetune:
         """
         if question is None:
             raise ValueError("question parameter is required")
-        return self._rollouts_from_group(
+        group = self._rollouts_from_group(
             RolloutGroup.query(
                 question=question,
                 image=image,
@@ -490,6 +497,7 @@ class Finetune:
                 spatial_refs=list(spatial_refs) if spatial_refs is not None else None,
             )
         )
+        return cast(RLGroup[QueryOutput], group)
 
     def point_rollouts(
         self,
@@ -498,7 +506,7 @@ class Finetune:
         num_rollouts: int = 1,
         settings: Optional[SamplingSettings] = None,
         ground_truth: Optional[PointGroundTruth] = None,
-    ) -> RLGroup:
+    ) -> RLGroup[PointOutput]:
         """Generate point rollouts.
 
         Point settings typically use `temperature`, `top_p`, and `max_objects`.
@@ -507,7 +515,7 @@ class Finetune:
             RLGroup: `group.rollouts` is a list of point output dicts such as
             `{"points": [{"x": 0.24, "y": 0.58}, {"x": 0.71, "y": 0.61}]}`.
         """
-        return self._rollouts_from_group(
+        group = self._rollouts_from_group(
             RolloutGroup.point(
                 image=image,
                 object=object,
@@ -516,6 +524,7 @@ class Finetune:
                 ground_truth=ground_truth,
             )
         )
+        return cast(RLGroup[PointOutput], group)
 
     def detect_rollouts(
         self,
@@ -524,7 +533,7 @@ class Finetune:
         num_rollouts: int = 1,
         settings: Optional[SamplingSettings] = None,
         ground_truth: Optional[DetectGroundTruth] = None,
-    ) -> RLGroup:
+    ) -> RLGroup[DetectOutput]:
         """Generate detect rollouts.
 
         Detect settings typically use `temperature`, `top_p`, and `max_objects`.
@@ -533,7 +542,7 @@ class Finetune:
             RLGroup: `group.rollouts` is a list of detect output dicts such as
             `{"objects": [{"x_min": 0.12, "y_min": 0.08, "x_max": 0.41, "y_max": 0.95}]}`.
         """
-        return self._rollouts_from_group(
+        group = self._rollouts_from_group(
             RolloutGroup.detect(
                 image=image,
                 object=object,
@@ -542,8 +551,9 @@ class Finetune:
                 ground_truth=ground_truth,
             )
         )
+        return cast(RLGroup[DetectOutput], group)
 
-    async def _rollouts_async(self, group: RolloutGroup) -> RLGroup:
+    async def _rollouts_async(self, group: RolloutGroup) -> RLGroup[RolloutOutput]:
         if group.num_rollouts < 1 or group.num_rollouts > 16:
             raise ValueError("num_rollouts must be between 1 and 16")
 
@@ -566,7 +576,7 @@ class Finetune:
         self,
         groups: Sequence[RolloutGroup],
         max_concurrency: int = 4,
-    ) -> List[RLGroup]:
+    ) -> List[RLGroup[RolloutOutput]]:
         if max_concurrency < 1:
             raise ValueError("max_concurrency must be at least 1")
         groups_list = list(groups)
@@ -580,8 +590,8 @@ class Finetune:
         self,
         groups: Sequence[RolloutGroup],
         max_concurrency: int,
-    ) -> List[RLGroup]:
-        results: List[Optional[RLGroup]] = [None] * len(groups)
+    ) -> List[RLGroup[RolloutOutput]]:
+        results: List[Optional[RLGroup[RolloutOutput]]] = [None] * len(groups)
         next_index = 0
         first_error: Optional[BaseException] = None
         lock = asyncio.Lock()
@@ -618,7 +628,7 @@ class Finetune:
 
     def train_step(
         self,
-        groups: Sequence[Union[RLGroup, SFTGroup]],
+        groups: Sequence[Union[RLGroup[RolloutOutput], SFTGroup]],
         lr: float = 0.002,
     ) -> TrainStepOutput:
         if not groups:
@@ -671,6 +681,55 @@ class Finetune:
         }
         result = self._request_json("POST", "/train_step", payload=payload)
         return {key: result[key] for key in _TRAIN_STEP_OUTPUT_KEYS if key in result}
+
+    def log_metrics(
+        self,
+        step: int,
+        metrics: Mapping[str, float],
+    ) -> MetricsLogOutput:
+        """Log user-defined metrics for a training step.
+
+        Metric names must match `[A-Za-z0-9_/-]+`, cannot start with `sys/` or
+        `usr/`, and values must be finite numbers.
+
+        Example:
+            ft.log_metrics(
+                step=step_output["step"],
+                metrics={
+                    "eval/country_match": 0.63,
+                    "eval/token_f1": 0.64,
+                },
+            )
+        """
+        if isinstance(step, bool) or not isinstance(step, int) or step < 0:
+            raise ValueError("step must be a non-negative integer")
+
+        metrics_dict = dict(metrics)
+        if not metrics_dict:
+            raise ValueError("metrics must include at least one entry")
+        if len(metrics_dict) > 100:
+            raise ValueError("metrics cannot include more than 100 entries")
+
+        payload_metrics = {}
+        for name, value in metrics_dict.items():
+            if not _METRIC_NAME_PATTERN.fullmatch(name):
+                raise ValueError(
+                    "metric names must use only letters, numbers, underscores, slashes, or hyphens"
+                )
+            if name.startswith("sys/") or name.startswith("usr/"):
+                raise ValueError("metric names cannot start with sys/ or usr/")
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ValueError("metric values must be finite numbers")
+            metric_value = float(value)
+            if not math.isfinite(metric_value):
+                raise ValueError("metric values must be finite numbers")
+            payload_metrics[name] = metric_value
+
+        return self._request_json(
+            "POST",
+            f"/finetunes/{self.finetune_id}/metrics",
+            payload={"step": step, "metrics": payload_metrics},
+        )
 
     def list_checkpoints(
         self,
