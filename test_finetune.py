@@ -1,6 +1,7 @@
 import json
 import socket
 import threading
+import time
 import unittest
 import urllib.error
 from unittest import mock
@@ -209,8 +210,8 @@ class FinetuneTests(unittest.TestCase):
                 RolloutRequest(skill="detect", image=FakeEncodedImage(), object="vehicles")
             )
 
-    def test_batch_rollouts_returns_rl_groups(self):
-        async def fake_rollouts_async(request):
+    def test_rollout_stream_yields_responses(self):
+        def fake_rollouts(request):
             return {
                 "request": {
                     "skill": request.skill,
@@ -225,17 +226,18 @@ class FinetuneTests(unittest.TestCase):
             RolloutRequest(skill="query", question="q1"),
         ]
 
-        with mock.patch.object(self.client, "_rollouts_async", side_effect=fake_rollouts_async):
-            groups = self.client.batch_rollouts(requests, max_concurrency=2)
+        with mock.patch.object(self.client, "rollouts", side_effect=fake_rollouts):
+            responses = list(self.client.rollout_stream(requests, max_concurrency=2))
 
-        self.assertEqual(groups[0]["mode"], "rl")
-        self.assertEqual(groups[0]["request"]["question"], "q0")
-        self.assertEqual(groups[0]["rollouts"][0]["output"]["answer"], "q0")
-        self.assertEqual(groups[0]["rewards"], [0.5])
+        self.assertEqual(len(responses), 2)
+        questions = {r["request"]["question"] for r in responses}
+        self.assertEqual(questions, {"q0", "q1"})
 
-    def test_batch_rollouts_validates_max_concurrency(self):
+    def test_rollout_stream_validates_params(self):
         with self.assertRaises(ValueError):
-            self.client.batch_rollouts([], max_concurrency=0)
+            list(self.client.rollout_stream([], max_concurrency=0))
+        with self.assertRaises(ValueError):
+            list(self.client.rollout_stream([], buffer_size=0))
 
     def test_build_sft_group_builds_http_shaped_group(self):
         group = self.client.build_sft_group(
@@ -481,14 +483,17 @@ class FinetuneTests(unittest.TestCase):
         self.assertEqual(mocked.call_count, 1)
         mocked_sleep.assert_not_called()
 
-    def test_batch_rollouts_preserves_order_and_concurrency_cap(self):
+    def test_rollout_stream_respects_concurrency_cap(self):
         active = {"count": 0, "max": 0}
+        lock = threading.Lock()
 
-        async def fake_rollouts_async(request):
-            active["count"] += 1
-            active["max"] = max(active["max"], active["count"])
-            await __import__("asyncio").sleep(0.01)
-            active["count"] -= 1
+        def fake_rollouts(request):
+            with lock:
+                active["count"] += 1
+                active["max"] = max(active["max"], active["count"])
+            time.sleep(0.02)
+            with lock:
+                active["count"] -= 1
             return {
                 "request": {"skill": request.skill, "question": request.question},
                 "rollouts": [],
@@ -496,81 +501,75 @@ class FinetuneTests(unittest.TestCase):
 
         requests = [RolloutRequest(skill="query", question=f"q{i}") for i in range(5)]
 
-        with mock.patch.object(self.client, "_rollouts_async", side_effect=fake_rollouts_async):
-            groups = self.client.batch_rollouts(requests, max_concurrency=2)
+        with mock.patch.object(self.client, "rollouts", side_effect=fake_rollouts):
+            responses = list(self.client.rollout_stream(requests, max_concurrency=2))
 
-        self.assertEqual(
-            [group["request"]["question"] for group in groups],
-            [f"q{i}" for i in range(5)],
-        )
+        self.assertEqual(len(responses), 5)
         self.assertLessEqual(active["max"], 2)
 
-    def test_batch_rollouts_drains_in_flight_requests_after_failure(self):
-        client = Finetune(
-            api_key="test-key",
-            endpoint="https://api.example.test/v1/tuning",
-            finetune_id="ft_123",
-            name="demo-ft",
-            rank=8,
-            max_retries=0,
-            retry_base_delay=0.01,
-            retry_max_delay=0.01,
-            timeout=0.01,
-        )
-        q0_started = threading.Event()
-        q1_started = threading.Event()
-        q2_started = threading.Event()
-        release_q0 = threading.Event()
+    def test_rollout_stream_stops_on_error(self):
+        call_count = [0]
+
+        def fake_rollouts(request):
+            call_count[0] += 1
+            if call_count[0] == 2:
+                raise FinetuneAPIError("boom")
+            time.sleep(0.02)
+            return {
+                "request": {"skill": request.skill, "question": request.question},
+                "rollouts": [],
+            }
+
+        requests = [RolloutRequest(skill="query", question=f"q{i}") for i in range(10)]
+
+        with mock.patch.object(self.client, "rollouts", side_effect=fake_rollouts):
+            with self.assertRaises(FinetuneAPIError):
+                list(self.client.rollout_stream(requests, max_concurrency=2))
+
+    def test_rollout_stream_stops_before_extra_requests_on_error(self):
+        """stop.set() must happen before blocking on the queue so other
+        workers don't pull additional requests after the first failure."""
         started = []
-        result = {}
+        lock = threading.Lock()
 
-        def request_json_once(method, path, payload=None, query=None):
-            question = payload["request"]["question"]
-            started.append(question)
+        def fake_rollouts(request):
+            with lock:
+                started.append(request.question)
+            if request.question == "q1":
+                raise FinetuneAPIError("boom")
+            time.sleep(0.1)
+            return {
+                "request": {"skill": request.skill, "question": request.question},
+                "rollouts": [],
+            }
 
-            if question == "q0":
-                q0_started.set()
-                self.assertTrue(release_q0.wait(timeout=1))
-                return {"request": payload["request"], "rollouts": []}
+        requests = [RolloutRequest(skill="query", question=f"q{i}") for i in range(20)]
 
-            if question == "q1":
-                q1_started.set()
-                self.assertTrue(q0_started.wait(timeout=1))
-                raise urllib.error.URLError("boom")
+        with mock.patch.object(self.client, "rollouts", side_effect=fake_rollouts):
+            with self.assertRaises(FinetuneAPIError):
+                list(self.client.rollout_stream(
+                    requests, max_concurrency=2, buffer_size=1,
+                ))
 
-            q2_started.set()
-            return {"request": payload["request"], "rollouts": []}
+        # Workers should not have started many requests beyond the failure
+        self.assertLess(len(started), 6)
 
-        def run_batch_rollouts():
-            try:
-                client.batch_rollouts(
-                    [
-                        RolloutRequest(skill="query", question="q0"),
-                        RolloutRequest(skill="query", question="q1"),
-                        RolloutRequest(skill="query", question="q2"),
-                    ],
-                    max_concurrency=2,
-                )
-            except Exception as exc:
-                result["error"] = exc
+    def test_rollout_stream_surfaces_iterator_error(self):
+        def bad_iterator():
+            yield RolloutRequest(skill="query", question="q0")
+            raise RuntimeError("dataset failed")
 
-        worker = threading.Thread(target=run_batch_rollouts)
+        def fake_rollouts(request):
+            time.sleep(0.02)
+            return {
+                "request": {"skill": request.skill, "question": request.question},
+                "rollouts": [],
+            }
 
-        with mock.patch.object(client, "_request_json_once", side_effect=request_json_once):
-            worker.start()
-            self.assertTrue(q0_started.wait(timeout=1))
-            self.assertTrue(q1_started.wait(timeout=1))
-            worker.join(timeout=0.05)
-            self.assertTrue(worker.is_alive())
-            self.assertFalse(q2_started.is_set())
-
-            release_q0.set()
-            worker.join(timeout=1)
-
-        self.assertFalse(worker.is_alive())
-        self.assertIsInstance(result.get("error"), FinetuneAPIError)
-        self.assertEqual(len(started), 2)
-        self.assertCountEqual(started, ["q0", "q1"])
+        with mock.patch.object(self.client, "rollouts", side_effect=fake_rollouts):
+            with self.assertRaises(RuntimeError) as ctx:
+                list(self.client.rollout_stream(bad_iterator(), max_concurrency=2))
+            self.assertIn("dataset failed", str(ctx.exception))
 
     def test_list_checkpoints_pass_limit_through_without_local_validation(self):
         with mock.patch.object(

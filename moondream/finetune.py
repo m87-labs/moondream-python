@@ -1,6 +1,6 @@
-import asyncio
 import base64
 import json
+import queue
 import random
 import socket
 import threading
@@ -10,7 +10,7 @@ import urllib.parse
 import urllib.request
 from io import BytesIO
 from importlib.metadata import version as _pkg_version
-from typing import Dict, List, Mapping, Optional, Sequence, Union
+from typing import Dict, Generator, Iterable, List, Mapping, Optional, Sequence, Union
 
 from PIL import Image
 
@@ -226,35 +226,6 @@ class Finetune:
 
         raise FinetuneAPIError(f"{path} failed: {last_error}")
 
-    async def _request_json_async(
-        self,
-        method: str,
-        path: str,
-        payload: Optional[dict] = None,
-        query: Optional[dict] = None,
-    ) -> dict:
-        last_error: Optional[Exception] = None
-        for attempt in range(self.max_retries + 1):
-            try:
-                return await asyncio.to_thread(
-                    self._request_json_once,
-                    method,
-                    path,
-                    payload,
-                    query,
-                )
-            except Exception as exc:
-                last_error = exc
-                if not _is_retryable_error(exc) or attempt == self.max_retries:
-                    if isinstance(exc, urllib.error.HTTPError):
-                        _raise_http_error(path, exc)
-                    raise FinetuneAPIError(f"{path} failed: {exc}") from exc
-                if isinstance(exc, urllib.error.HTTPError):
-                    _close_http_error(exc)
-                await asyncio.sleep(self._backoff_delay(attempt))
-
-        raise FinetuneAPIError(f"{path} failed: {last_error}")
-
     def _request_payload(
         self,
         *,
@@ -325,31 +296,103 @@ class Finetune:
     def delete(self) -> OkResponse:
         return self._request_json("DELETE", f"/finetunes/{self.finetune_id}")
 
-    async def _rollouts_async(self, request: RolloutRequest) -> RolloutsResponse:
-        return await self._request_json_async(
-            "POST",
-            "/rollouts",
-            payload=self._rollouts_payload(request),
-        )
-
-    def batch_rollouts(
+    def rollout_stream(
         self,
-        requests: Sequence[RolloutRequest],
+        requests: Iterable[RolloutRequest],
+        *,
         max_concurrency: int = 4,
-    ) -> List[RLGroup]:
-        """Generate multiple rollout requests in parallel.
+        buffer_size: int = 8,
+    ) -> Generator[RolloutsResponse, None, None]:
+        """Generate rollouts in the background, yielding responses as they complete.
 
-        Returns RL groups with `mode`, `request`, and `rollouts` populated.
-        Fill `group["rewards"]` before calling `train_step(...)`.
+        Rollout requests are dispatched from background threads so that
+        the caller can run train_step while the next batch of rollouts is
+        already in flight.  The bounded buffer provides backpressure so
+        generation never gets too far ahead of training.
+
+        Results are yielded in completion order, not submission order.
         """
         if max_concurrency < 1:
             raise ValueError("max_concurrency must be at least 1")
-        requests_list = list(requests)
-        if not requests_list:
-            return []
-        return self._run_async(
-            self._batch_rollouts_async(requests_list, max_concurrency=max_concurrency)
-        )
+        if buffer_size < 1:
+            raise ValueError("buffer_size must be at least 1")
+
+        result_queue: queue.Queue = queue.Queue(maxsize=buffer_size)
+        requests_iter = iter(requests)
+        requests_lock = threading.Lock()
+        stop = threading.Event()
+        remaining = [max_concurrency]
+        remaining_lock = threading.Lock()
+        _DONE = object()
+
+        def worker():
+            try:
+                while not stop.is_set():
+                    with requests_lock:
+                        try:
+                            request = next(requests_iter)
+                        except StopIteration:
+                            return
+                        except Exception as exc:
+                            stop.set()
+                            while True:
+                                try:
+                                    result_queue.put(exc, timeout=0.1)
+                                    break
+                                except queue.Full:
+                                    continue
+                            return
+
+                    if stop.is_set():
+                        return
+
+                    try:
+                        response = self.rollouts(request)
+                    except Exception as exc:
+                        stop.set()
+                        while True:
+                            try:
+                                result_queue.put(exc, timeout=0.1)
+                                break
+                            except queue.Full:
+                                continue
+                        return
+
+                    while not stop.is_set():
+                        try:
+                            result_queue.put(response, timeout=0.1)
+                            break
+                        except queue.Full:
+                            continue
+            finally:
+                with remaining_lock:
+                    remaining[0] -= 1
+                    if remaining[0] == 0:
+                        result_queue.put(_DONE)
+
+        threads = []
+        for _ in range(max_concurrency):
+            t = threading.Thread(target=worker, daemon=True)
+            t.start()
+            threads.append(t)
+
+        try:
+            while True:
+                item = result_queue.get()
+                if item is _DONE:
+                    return
+                if isinstance(item, Exception):
+                    raise item
+                yield item
+        finally:
+            stop.set()
+            while True:
+                try:
+                    result_queue.get_nowait()
+                except queue.Empty:
+                    break
+            for t in threads:
+                t.join(timeout=5.0)
 
     def build_sft_group(
         self,
@@ -374,47 +417,6 @@ class Finetune:
             ),
             "targets": list(targets),
         }
-
-    async def _batch_rollouts_async(
-        self,
-        requests: Sequence[RolloutRequest],
-        max_concurrency: int,
-    ) -> List[RLGroup]:
-        results: List[Optional[RLGroup]] = [None] * len(requests)
-        next_index = 0
-        first_error: Optional[BaseException] = None
-        lock = asyncio.Lock()
-        stop = asyncio.Event()
-
-        async def worker():
-            nonlocal next_index, first_error
-
-            while True:
-                async with lock:
-                    if stop.is_set() or next_index >= len(requests):
-                        return
-                    index = next_index
-                    next_index += 1
-
-                try:
-                    response = await self._rollouts_async(requests[index])
-                    results[index] = self._rl_group_from_response(response)
-                except Exception as exc:
-                    if not stop.is_set():
-                        first_error = exc
-                        stop.set()
-                    return
-
-        tasks = [
-            asyncio.create_task(worker())
-            for _ in range(min(max_concurrency, len(requests)))
-        ]
-        await asyncio.gather(*tasks)
-
-        if first_error is not None:
-            raise first_error
-
-        return [result for result in results if result is not None]
 
     def train_step(
         self,
@@ -482,27 +484,6 @@ class Finetune:
 
     def model(self, step: int) -> str:
         return f"moondream3-preview/{self.finetune_id}@{step}"
-
-    def _run_async(self, coro):
-        try:
-            asyncio.get_running_loop()
-        except RuntimeError:
-            return asyncio.run(coro)
-
-        result = {}
-
-        def runner():
-            try:
-                result["value"] = asyncio.run(coro)
-            except BaseException as exc:
-                result["error"] = exc
-
-        thread = threading.Thread(target=runner)
-        thread.start()
-        thread.join()
-        if "error" in result:
-            raise result["error"]
-        return result["value"]
 
 
 def ft(
