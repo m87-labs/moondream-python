@@ -20,7 +20,6 @@ from .types import (
     FinetuneInfo,
     EncodedImage,
     MetricsLogOutput,
-    OkResponse,
     RLGroup,
     RolloutRequest,
     RolloutsResponse,
@@ -293,17 +292,22 @@ class Finetune:
             payload=self._rollouts_payload(request),
         )
 
-    def delete(self) -> OkResponse:
-        return self._request_json("DELETE", f"/finetunes/{self.finetune_id}")
+    def delete(self) -> None:
+        self._request_json("DELETE", f"/finetunes/{self.finetune_id}")
 
     def rollout_stream(
         self,
-        requests: Iterable[RolloutRequest],
+        requests: Iterable[tuple],
         *,
         max_concurrency: int = 4,
         buffer_size: int = 8,
-    ) -> Generator[RolloutsResponse, None, None]:
-        """Generate rollouts in the background, yielding responses as they complete.
+    ) -> Generator[tuple, None, None]:
+        """Generate rollouts in the background, yielding results as they complete.
+
+        Takes an iterable of ``(context, RolloutRequest)`` tuples and yields
+        ``(context, RolloutsResponse)`` tuples.  The context is passed through
+        untouched so callers can pair responses with ground-truth labels or
+        other metadata needed for scoring.
 
         Rollout requests are dispatched from background threads so that
         the caller can run train_step while the next batch of rollouts is
@@ -330,7 +334,7 @@ class Finetune:
                 while not stop.is_set():
                     with requests_lock:
                         try:
-                            request = next(requests_iter)
+                            context, request = next(requests_iter)
                         except StopIteration:
                             return
                         except Exception as exc:
@@ -360,7 +364,7 @@ class Finetune:
 
                     while not stop.is_set():
                         try:
-                            result_queue.put(response, timeout=0.1)
+                            result_queue.put((context, response), timeout=0.1)
                             break
                         except queue.Full:
                             continue
@@ -477,8 +481,8 @@ class Finetune:
             "POST", f"/finetunes/{self.finetune_id}/checkpoints/save"
         )
 
-    def delete_checkpoint(self, step: int) -> OkResponse:
-        return self._request_json(
+    def delete_checkpoint(self, step: int) -> None:
+        self._request_json(
             "DELETE", f"/finetunes/{self.finetune_id}/checkpoints/{step}"
         )
 

@@ -210,7 +210,7 @@ class FinetuneTests(unittest.TestCase):
                 RolloutRequest(skill="detect", image=FakeEncodedImage(), object="vehicles")
             )
 
-    def test_rollout_stream_yields_responses(self):
+    def test_rollout_stream_yields_context_response_pairs(self):
         def fake_rollouts(request):
             return {
                 "request": {
@@ -221,17 +221,20 @@ class FinetuneTests(unittest.TestCase):
                 "rewards": [0.5],
             }
 
-        requests = [
-            RolloutRequest(skill="query", question="q0"),
-            RolloutRequest(skill="query", question="q1"),
+        items = [
+            ({"label": "rock"}, RolloutRequest(skill="query", question="q0")),
+            ({"label": "paper"}, RolloutRequest(skill="query", question="q1")),
         ]
 
         with mock.patch.object(self.client, "rollouts", side_effect=fake_rollouts):
-            responses = list(self.client.rollout_stream(requests, max_concurrency=2))
+            results = list(self.client.rollout_stream(items, max_concurrency=2))
 
-        self.assertEqual(len(responses), 2)
-        questions = {r["request"]["question"] for r in responses}
-        self.assertEqual(questions, {"q0", "q1"})
+        self.assertEqual(len(results), 2)
+        contexts = {r[0]["label"] for r in results}
+        self.assertEqual(contexts, {"rock", "paper"})
+        for context, response in results:
+            self.assertIn("request", response)
+            self.assertIn("rollouts", response)
 
     def test_rollout_stream_validates_params(self):
         with self.assertRaises(ValueError):
@@ -499,12 +502,12 @@ class FinetuneTests(unittest.TestCase):
                 "rollouts": [],
             }
 
-        requests = [RolloutRequest(skill="query", question=f"q{i}") for i in range(5)]
+        items = [(i, RolloutRequest(skill="query", question=f"q{i}")) for i in range(5)]
 
         with mock.patch.object(self.client, "rollouts", side_effect=fake_rollouts):
-            responses = list(self.client.rollout_stream(requests, max_concurrency=2))
+            results = list(self.client.rollout_stream(items, max_concurrency=2))
 
-        self.assertEqual(len(responses), 5)
+        self.assertEqual(len(results), 5)
         self.assertLessEqual(active["max"], 2)
 
     def test_rollout_stream_stops_on_error(self):
@@ -520,11 +523,11 @@ class FinetuneTests(unittest.TestCase):
                 "rollouts": [],
             }
 
-        requests = [RolloutRequest(skill="query", question=f"q{i}") for i in range(10)]
+        items = [(i, RolloutRequest(skill="query", question=f"q{i}")) for i in range(10)]
 
         with mock.patch.object(self.client, "rollouts", side_effect=fake_rollouts):
             with self.assertRaises(FinetuneAPIError):
-                list(self.client.rollout_stream(requests, max_concurrency=2))
+                list(self.client.rollout_stream(items, max_concurrency=2))
 
     def test_rollout_stream_stops_before_extra_requests_on_error(self):
         """stop.set() must happen before blocking on the queue so other
@@ -543,12 +546,12 @@ class FinetuneTests(unittest.TestCase):
                 "rollouts": [],
             }
 
-        requests = [RolloutRequest(skill="query", question=f"q{i}") for i in range(20)]
+        items = [(i, RolloutRequest(skill="query", question=f"q{i}")) for i in range(20)]
 
         with mock.patch.object(self.client, "rollouts", side_effect=fake_rollouts):
             with self.assertRaises(FinetuneAPIError):
                 list(self.client.rollout_stream(
-                    requests, max_concurrency=2, buffer_size=1,
+                    items, max_concurrency=2, buffer_size=1,
                 ))
 
         # Workers should not have started many requests beyond the failure
@@ -556,7 +559,7 @@ class FinetuneTests(unittest.TestCase):
 
     def test_rollout_stream_surfaces_iterator_error(self):
         def bad_iterator():
-            yield RolloutRequest(skill="query", question="q0")
+            yield (None, RolloutRequest(skill="query", question="q0"))
             raise RuntimeError("dataset failed")
 
         def fake_rollouts(request):
@@ -608,7 +611,7 @@ class FinetuneTests(unittest.TestCase):
             "/finetunes/ft_123/checkpoints/save",
         )
 
-    def test_delete_returns_raw_response(self):
+    def test_delete_returns_none(self):
         with mock.patch.object(
             self.client,
             "_request_json",
@@ -616,10 +619,10 @@ class FinetuneTests(unittest.TestCase):
         ) as mocked:
             result = self.client.delete()
 
-        self.assertEqual(result, {"ok": True})
+        self.assertIsNone(result)
         mocked.assert_called_once_with("DELETE", "/finetunes/ft_123")
 
-    def test_delete_checkpoint_returns_raw_response(self):
+    def test_delete_checkpoint_returns_none(self):
         with mock.patch.object(
             self.client,
             "_request_json",
@@ -627,7 +630,7 @@ class FinetuneTests(unittest.TestCase):
         ) as mocked:
             result = self.client.delete_checkpoint(7)
 
-        self.assertEqual(result, {"ok": True})
+        self.assertIsNone(result)
         mocked.assert_called_once_with(
             "DELETE",
             "/finetunes/ft_123/checkpoints/7",

@@ -136,30 +136,29 @@ def main():
 
     print(f"Created finetune: {ft.finetune_id} ({ft.name})", flush=True)
 
-    for _ in range(args.steps):
-        example = next(train_examples)
-
-        response = ft.rollouts(
-            md.types.RolloutRequest(
+    def make_requests(examples, num_rollouts, settings):
+        for example in examples:
+            yield example, md.types.RolloutRequest(
                 skill="query",
                 image=example["image"],
                 question=QUESTION,
-                num_rollouts=args.num_rollouts,
-                settings=TRAIN_SETTINGS,
+                num_rollouts=num_rollouts,
+                settings=settings,
             )
-        )
+
+    requests = make_requests(train_examples, args.num_rollouts, TRAIN_SETTINGS)
+
+    for example, response in ft.rollout_stream(islice(requests, args.steps)):
         rewards = [
             reward(rollout["output"].get("answer", ""), example["answer"])
             for rollout in response["rollouts"]
         ]
-        rl_group: md.types.RLGroup = {
+        step = ft.train_step([{
             "mode": "rl",
             "request": response["request"],
             "rollouts": response["rollouts"],
             "rewards": rewards,
-        }
-
-        step = ft.train_step([rl_group], lr=args.lr)
+        }], lr=args.lr)
         reward_mean = sum(rewards) / len(rewards)
         print(
             f"step={step['step']} label={example['answer']} reward_mean={reward_mean:.3f}",
