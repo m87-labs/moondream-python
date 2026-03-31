@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from PIL import Image
-from dataclasses import dataclass, field
-from typing import Generator, Generic, List, TypedDict, Union, Optional, Literal, Sequence, TypeVar
+from dataclasses import dataclass
+from typing import Generator, List, TypedDict, Union, Optional, Literal
 
 
 @dataclass
@@ -56,7 +56,7 @@ QueryOutput = TypedDict(
 )
 
 Region = TypedDict(
-    "Region", {"x_min": float, "y_min": float, "x_max": int, "y_max": float}
+    "Region", {"x_min": float, "y_min": float, "x_max": float, "y_max": float}
 )
 DetectOutput = TypedDict("DetectOutput", {"objects": List[Region]})
 
@@ -100,6 +100,7 @@ PointGroundTruth = TypedDict(
 DetectGroundTruth = TypedDict("DetectGroundTruth", {"boxes": List[Region]})
 
 FinetuneGroundTruth = Union[PointGroundTruth, DetectGroundTruth]
+Skill = Literal["query", "point", "detect"]
 
 QueryTarget = TypedDict(
     "QueryTarget",
@@ -123,8 +124,8 @@ DetectTarget = TypedDict("DetectTarget", {"boxes": List[Region]})
 
 SFTTarget = Union[QueryTarget, PointTarget, DetectTarget]
 
-_RawRolloutOutput = TypedDict(
-    "_RawRolloutOutput",
+RolloutOutput = TypedDict(
+    "RolloutOutput",
     {
         "answer": str,
         "reasoning": Optional[Reasoning],
@@ -134,12 +135,26 @@ _RawRolloutOutput = TypedDict(
     total=False,
 )
 
-_RawRollout = TypedDict(
-    "_RawRollout",
+SkillRequest = TypedDict(
+    "SkillRequest",
     {
-        "skill": Literal["query", "point", "detect"],
+        "skill": Skill,
+        "image_url": str,
+        "question": str,
+        "object": str,
+        "spatial_refs": List[SpatialRef],
+        "reasoning": bool,
+        "settings": SamplingSettings,
+    },
+    total=False,
+)
+
+Rollout = TypedDict(
+    "Rollout",
+    {
+        "skill": Skill,
         "finish_reason": str,
-        "output": _RawRolloutOutput,
+        "output": RolloutOutput,
         "answer_tokens": List[int],
         "thinking_tokens": List[int],
         "has_answer_separator": bool,
@@ -149,8 +164,15 @@ _RawRollout = TypedDict(
     total=False,
 )
 
-RolloutOutput = Union[QueryOutput, PointOutput, DetectOutput]
-RolloutOutputT = TypeVar("RolloutOutputT")
+RolloutsResponse = TypedDict(
+    "RolloutsResponse",
+    {
+        "request": SkillRequest,
+        "rollouts": List[Rollout],
+        "rewards": Optional[List[float]],
+    },
+    total=False,
+)
 
 TrainStepOutput = TypedDict(
     "TrainStepOutput",
@@ -213,8 +235,8 @@ CheckpointListOutput = TypedDict(
 )
 
 @dataclass(frozen=True)
-class RolloutGroup:
-    skill: Literal["query", "point", "detect"]
+class RolloutRequest:
+    skill: Skill
     num_rollouts: int = 1
     image: Optional[Union[Image.Image, EncodedImage]] = None
     question: Optional[str] = None
@@ -224,148 +246,27 @@ class RolloutGroup:
     settings: Optional[SamplingSettings] = None
     ground_truth: Optional[FinetuneGroundTruth] = None
 
-    @classmethod
-    def query(
-        cls,
-        question: str,
-        image: Optional[Union[Image.Image, EncodedImage]] = None,
-        *,
-        num_rollouts: int = 1,
-        settings: Optional[SamplingSettings] = None,
-        reasoning: bool = False,
-        spatial_refs: Optional[List[SpatialRef]] = None,
-    ) -> "RolloutGroup":
-        return cls(
-            skill="query",
-            num_rollouts=num_rollouts,
-            image=image,
-            question=question,
-            spatial_refs=spatial_refs,
-            reasoning=reasoning,
-            settings=settings,
-        )
 
-    @classmethod
-    def point(
-        cls,
-        image: Union[Image.Image, EncodedImage],
-        object: str,
-        *,
-        num_rollouts: int = 1,
-        settings: Optional[SamplingSettings] = None,
-        ground_truth: Optional[PointGroundTruth] = None,
-    ) -> "RolloutGroup":
-        return cls(
-            skill="point",
-            num_rollouts=num_rollouts,
-            image=image,
-            object=object,
-            settings=settings,
-            ground_truth=ground_truth,
-        )
+RLGroup = TypedDict(
+    "RLGroup",
+    {
+        "mode": Literal["rl"],
+        "request": SkillRequest,
+        "rollouts": List[Rollout],
+        "rewards": List[float],
+    },
+    total=False,
+)
 
-    @classmethod
-    def detect(
-        cls,
-        image: Union[Image.Image, EncodedImage],
-        object: str,
-        *,
-        num_rollouts: int = 1,
-        settings: Optional[SamplingSettings] = None,
-        ground_truth: Optional[DetectGroundTruth] = None,
-    ) -> "RolloutGroup":
-        return cls(
-            skill="detect",
-            num_rollouts=num_rollouts,
-            image=image,
-            object=object,
-            settings=settings,
-            ground_truth=ground_truth,
-        )
-
-
-@dataclass
-class RLGroup(Generic[RolloutOutputT]):
-    skill: Literal["query", "point", "detect"]
-    rollouts: List[RolloutOutputT]
-    image: Optional[Union[Image.Image, EncodedImage]] = None
-    question: Optional[str] = None
-    object: Optional[str] = None
-    spatial_refs: Optional[List[SpatialRef]] = None
-    reasoning: bool = False
-    settings: Optional[SamplingSettings] = None
-    rewards: Optional[List[float]] = None
-    _request_payload: Optional[dict] = field(default=None, repr=False, compare=False)
-    _rollouts_payload: Optional[List[_RawRollout]] = field(
-        default=None, repr=False, compare=False
-    )
-
-    def __setattr__(self, name, value):
-        if name == "rewards" and value is not None:
-            rewards = list(value)
-            rollouts = self.__dict__.get("rollouts")
-            if rollouts is not None and len(rewards) != len(rollouts):
-                raise ValueError("rewards must match rollouts length")
-            value = rewards
-        object.__setattr__(self, name, value)
-
-
-@dataclass(frozen=True)
-class SFTGroup:
-    skill: Literal["query", "point", "detect"]
-    targets: List[SFTTarget]
-    image: Optional[Union[Image.Image, EncodedImage]] = None
-    question: Optional[str] = None
-    object: Optional[str] = None
-    spatial_refs: Optional[List[SpatialRef]] = None
-    reasoning: bool = False
-
-    @classmethod
-    def query(
-        cls,
-        question: str,
-        targets: Sequence[QueryTarget],
-        image: Optional[Union[Image.Image, EncodedImage]] = None,
-        *,
-        reasoning: bool = False,
-        spatial_refs: Optional[List[SpatialRef]] = None,
-    ) -> "SFTGroup":
-        return cls(
-            skill="query",
-            targets=list(targets),
-            image=image,
-            question=question,
-            spatial_refs=spatial_refs,
-            reasoning=reasoning,
-        )
-
-    @classmethod
-    def point(
-        cls,
-        image: Union[Image.Image, EncodedImage],
-        object: str,
-        targets: Sequence[PointTarget],
-    ) -> "SFTGroup":
-        return cls(
-            skill="point",
-            targets=list(targets),
-            image=image,
-            object=object,
-        )
-
-    @classmethod
-    def detect(
-        cls,
-        image: Union[Image.Image, EncodedImage],
-        object: str,
-        targets: Sequence[DetectTarget],
-    ) -> "SFTGroup":
-        return cls(
-            skill="detect",
-            targets=list(targets),
-            image=image,
-            object=object,
-        )
+SFTGroup = TypedDict(
+    "SFTGroup",
+    {
+        "mode": Literal["sft"],
+        "request": SkillRequest,
+        "targets": List[SFTTarget],
+    },
+    total=False,
+)
 
 
 class VLM(ABC):

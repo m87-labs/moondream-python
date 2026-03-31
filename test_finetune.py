@@ -9,7 +9,7 @@ import moondream as md
 from PIL import Image
 
 from moondream.finetune import Finetune, FinetuneAPIError, ft
-from moondream.types import EncodedImage, RLGroup, RolloutGroup, SFTGroup
+from moondream.types import EncodedImage, RLGroup, RolloutRequest, SFTGroup
 
 
 class _FakeResponse:
@@ -76,17 +76,16 @@ class FinetuneTests(unittest.TestCase):
             ft(api_key="x", name="demo", finetune_id="ft_123")
 
         with self.assertRaises(ValueError):
-            ft(api_key="x", name="bad name", rank=8)
-
-        with self.assertRaises(ValueError):
             ft(api_key="x", name="demo", rank=8, max_retries=-1)
 
     def test_package_exposes_helper_types_under_md_types(self):
         self.assertTrue(hasattr(md, "ft"))
         self.assertTrue(hasattr(md, "types"))
-        self.assertIs(md.types.RolloutGroup, RolloutGroup)
+        self.assertIs(md.types.RolloutRequest, RolloutRequest)
+        self.assertIs(md.types.RLGroup, RLGroup)
         self.assertIs(md.types.SFTGroup, SFTGroup)
-        self.assertFalse(hasattr(md, "RolloutGroup"))
+        self.assertFalse(hasattr(md, "RolloutRequest"))
+        self.assertFalse(hasattr(md, "RLGroup"))
         self.assertFalse(hasattr(md, "SFTGroup"))
 
     def test_ft_binds_existing_finetune(self):
@@ -132,165 +131,133 @@ class FinetuneTests(unittest.TestCase):
             payload={"name": "new-ft", "rank": 12},
         )
 
-    def test_query_rollouts_requires_question(self):
-        with self.assertRaises(ValueError):
-            self.client.query_rollouts(image=self.image)
-
-    def test_detect_rollouts_serializes_request_and_returns_rl_group(self):
-        response = {
-            "request": {
-                "skill": "detect",
-                "object": "vehicles",
-                "image_url": "data:image/jpeg;base64,abc",
-            },
-            "rollouts": [_raw_rollout("detect", {"objects": []})],
-            "rewards": None,
-        }
-
-        with mock.patch.object(self.client, "_request_json", return_value=response) as mocked:
-            rl_group = self.client.detect_rollouts(
-                self.image,
-                "vehicles",
-                num_rollouts=2,
-                settings={"temperature": 1.0, "top_p": 1.0, "max_objects": 5},
-            )
-
-        self.assertIsInstance(rl_group, RLGroup)
-        self.assertEqual(rl_group.skill, "detect")
-        self.assertEqual(rl_group.object, "vehicles")
-        self.assertEqual(rl_group.rollouts, [{"objects": []}])
-
-        payload = mocked.call_args.kwargs["payload"]
-        self.assertEqual(payload["finetune_id"], "ft_123")
-        self.assertEqual(payload["num_rollouts"], 2)
-        self.assertEqual(payload["request"]["skill"], "detect")
-        self.assertTrue(payload["request"]["image_url"].startswith("data:image/jpeg;base64,"))
-
-    def test_detect_rollouts_deep_copy_public_outputs(self):
-        response = {
-            "request": {
-                "skill": "detect",
-                "object": "vehicles",
-                "image_url": "data:image/jpeg;base64,abc",
-            },
-            "rollouts": [
-                _raw_rollout(
-                    "detect",
-                    {
-                        "objects": [
-                            {
-                                "x_min": 0.1,
-                                "y_min": 0.2,
-                                "x_max": 0.3,
-                                "y_max": 0.4,
-                            }
-                        ]
-                    },
-                )
-            ],
-        }
-
-        with mock.patch.object(self.client, "_request_json", return_value=response):
-            rl_group = self.client.detect_rollouts(
-                self.image,
-                "vehicles",
-            )
-
-        rl_group.rollouts[0]["objects"].append(
-            {"x_min": 0.5, "y_min": 0.6, "x_max": 0.7, "y_max": 0.8}
-        )
-
-        self.assertEqual(len(rl_group.rollouts[0]["objects"]), 2)
-        self.assertEqual(len(rl_group._rollouts_payload[0]["output"]["objects"]), 1)
-
-    def test_query_rollouts_return_flat_model_outputs(self):
+    def test_rollouts_serializes_request_and_returns_raw_response(self):
         response = {
             "request": {
                 "skill": "query",
                 "question": "What is happening?",
                 "image_url": "data:image/jpeg;base64,abc",
+                "reasoning": True,
+                "settings": {"temperature": 1.0, "top_p": 1.0, "max_tokens": 8},
             },
-            "rollouts": [
-                _raw_rollout("query", {"answer": "People are socializing."}),
-                _raw_rollout("query", {"answer": "Friends are chatting."}),
-            ],
+            "rollouts": [_raw_rollout("query", {"answer": "People are socializing."})],
         }
 
-        with mock.patch.object(self.client, "_request_json", return_value=response):
-            rl_group = self.client.query_rollouts(
-                image=self.image,
-                question="What is happening?",
-                num_rollouts=2,
-            )
-
-        self.assertEqual(rl_group.rollouts[0]["answer"], "People are socializing.")
-        self.assertNotIn("output", rl_group.rollouts[0])
-        self.assertEqual(rl_group.question, "What is happening?")
-
-    def test_query_rollouts_pass_settings_through(self):
-        response = {"request": {"skill": "query", "question": "What is here?"}, "rollouts": []}
+        request = RolloutRequest(
+            skill="query",
+            image=self.image,
+            question="What is happening?",
+            num_rollouts=2,
+            reasoning=True,
+            settings={"temperature": 1.0, "top_p": 1.0, "max_tokens": 8},
+        )
 
         with mock.patch.object(self.client, "_request_json", return_value=response) as mocked:
-            self.client.query_rollouts(
-                image=self.image,
-                question="What is here?",
-                settings={"max_objects": 2},
-            )
+            result = self.client.rollouts(request)
+
+        self.assertEqual(result, response)
+        payload = mocked.call_args.kwargs["payload"]
+        self.assertEqual(payload["finetune_id"], "ft_123")
+        self.assertEqual(payload["num_rollouts"], 2)
+        self.assertEqual(payload["request"]["skill"], "query")
+        self.assertEqual(payload["request"]["question"], "What is happening?")
+        self.assertTrue(payload["request"]["image_url"].startswith("data:image/jpeg;base64,"))
+        self.assertTrue(payload["request"]["reasoning"])
+
+    def test_rollouts_pass_settings_through(self):
+        request = RolloutRequest(
+            skill="query",
+            question="What is here?",
+            image=self.image,
+            settings={"max_objects": 2},
+        )
+
+        with mock.patch.object(
+            self.client,
+            "_request_json",
+            return_value={"request": {"skill": "query"}, "rollouts": []},
+        ) as mocked:
+            self.client.rollouts(request)
 
         payload = mocked.call_args.kwargs["payload"]
         self.assertEqual(payload["request"]["settings"]["max_objects"], 2)
 
-    def test_detect_rollouts_pass_settings_through(self):
-        response = {"request": {"skill": "detect", "object": "vehicles"}, "rollouts": []}
+    def test_rollouts_pass_ground_truth_through(self):
+        request = RolloutRequest(
+            skill="detect",
+            image=self.image,
+            object="vehicles",
+            ground_truth={"boxes": []},
+        )
 
-        with mock.patch.object(self.client, "_request_json", return_value=response) as mocked:
-            self.client.detect_rollouts(
-                self.image,
-                "vehicles",
-                settings={"max_tokens": 16},
-            )
+        with mock.patch.object(
+            self.client,
+            "_request_json",
+            return_value={"request": {"skill": "detect"}, "rollouts": []},
+        ) as mocked:
+            self.client.rollouts(request)
 
         payload = mocked.call_args.kwargs["payload"]
-        self.assertEqual(payload["request"]["settings"]["max_tokens"], 16)
+        self.assertEqual(payload["ground_truth"], {"boxes": []})
 
     def test_rollouts_reject_unknown_encoded_image(self):
         class FakeEncodedImage(EncodedImage):
             pass
 
         with self.assertRaises(ValueError):
-            self.client.detect_rollouts(FakeEncodedImage(), "vehicles")
+            self.client.rollouts(
+                RolloutRequest(skill="detect", image=FakeEncodedImage(), object="vehicles")
+            )
 
-    def test_rlgroup_rewards_assignment_validates_length(self):
-        rl_group = RLGroup(
-            skill="query",
-            question="hi",
-            rollouts=[{"answer": "hello"}],
-        )
+    def test_batch_rollouts_returns_rl_groups(self):
+        async def fake_rollouts_async(request):
+            return {
+                "request": {
+                    "skill": request.skill,
+                    "question": request.question,
+                },
+                "rollouts": [_raw_rollout(request.skill, {"answer": request.question})],
+                "rewards": [0.5],
+            }
 
+        requests = [
+            RolloutRequest(skill="query", question="q0"),
+            RolloutRequest(skill="query", question="q1"),
+        ]
+
+        with mock.patch.object(self.client, "_rollouts_async", side_effect=fake_rollouts_async):
+            groups = self.client.batch_rollouts(requests, max_concurrency=2)
+
+        self.assertEqual(groups[0]["mode"], "rl")
+        self.assertEqual(groups[0]["request"]["question"], "q0")
+        self.assertEqual(groups[0]["rollouts"][0]["output"]["answer"], "q0")
+        self.assertEqual(groups[0]["rewards"], [0.5])
+
+    def test_batch_rollouts_validates_max_concurrency(self):
         with self.assertRaises(ValueError):
-            rl_group.rewards = [1.0, 0.0]
+            self.client.batch_rollouts([], max_concurrency=0)
 
     def test_train_step_builds_mixed_rl_and_sft_payload(self):
         raw_rollout = _raw_rollout("query", {"answer": "A sign"})
-        rl_group = RLGroup(
-            skill="query",
-            question="What is this?",
-            image=self.image,
-            rollouts=[{"answer": "A sign"}],
-            rewards=[1.0],
-            _request_payload={
+        rl_group: RLGroup = {
+            "mode": "rl",
+            "request": {
                 "skill": "query",
                 "question": "What is this?",
                 "image_url": "data:image/jpeg;base64,abc",
             },
-            _rollouts_payload=[raw_rollout],
-        )
-        sft_group = SFTGroup.query(
-            question="What country is this?",
-            image=self.image,
-            reasoning=False,
-            targets=[{"answer": "United States"}],
-        )
+            "rollouts": [raw_rollout],
+            "rewards": [1.0],
+        }
+        sft_group: SFTGroup = {
+            "mode": "sft",
+            "request": {
+                "skill": "query",
+                "question": "What country is this?",
+                "image_url": "data:image/jpeg;base64,abc",
+            },
+            "targets": [{"answer": "United States"}],
+        }
 
         with mock.patch.object(
             self.client, "_request_json", return_value={"step": 1, "applied": True}
@@ -306,18 +273,14 @@ class FinetuneTests(unittest.TestCase):
         self.assertEqual(payload["groups"][0]["rewards"], [1.0])
         self.assertEqual(payload["groups"][1]["mode"], "sft")
         self.assertEqual(payload["groups"][1]["targets"], [{"answer": "United States"}])
-        self.assertIn("image_url", payload["groups"][1]["request"])
-        self.assertNotIn("settings", payload["groups"][1]["request"])
 
     def test_train_step_hides_internal_metrics(self):
-        rl_group = RLGroup(
-            skill="query",
-            question="What is this?",
-            rollouts=[{"answer": "A photo"}],
-            rewards=[1.0],
-            _request_payload={"skill": "query", "question": "What is this?"},
-            _rollouts_payload=[_raw_rollout("query", {"answer": "A photo"})],
-        )
+        rl_group: RLGroup = {
+            "mode": "rl",
+            "request": {"skill": "query", "question": "What is this?"},
+            "rollouts": [_raw_rollout("query", {"answer": "A photo"})],
+            "rewards": [1.0],
+        }
 
         with mock.patch.object(
             self.client,
@@ -376,14 +339,13 @@ class FinetuneTests(unittest.TestCase):
             self.client.log_metrics(1, too_many)
 
     def test_public_rollout_to_train_step_handoff(self):
-        raw_rollout = _raw_rollout("query", {"answer": "People are socializing."})
         rollout_response = {
             "request": {
                 "skill": "query",
                 "question": "What is happening?",
                 "image_url": "data:image/jpeg;base64,abc",
             },
-            "rollouts": [raw_rollout],
+            "rollouts": [_raw_rollout("query", {"answer": "People are socializing."})],
         }
 
         with mock.patch.object(
@@ -391,133 +353,50 @@ class FinetuneTests(unittest.TestCase):
             "_request_json",
             side_effect=[rollout_response, {"step": 4, "applied": True}],
         ) as mocked:
-            rl_group = self.client.query_rollouts(
-                image=self.image,
-                question="What is happening?",
+            response = self.client.rollouts(
+                RolloutRequest(
+                    skill="query",
+                    image=self.image,
+                    question="What is happening?",
+                )
             )
-            rl_group.rewards = [1.0]
-            result = self.client.train_step([rl_group])
-
-        self.assertEqual(result["step"], 4)
-        self.assertEqual(rl_group.rollouts, [{"answer": "People are socializing."}])
-        train_payload = mocked.call_args_list[1].kwargs["payload"]
-        self.assertEqual(train_payload["groups"][0]["request"], rollout_response["request"])
-        self.assertEqual(train_payload["groups"][0]["rollouts"], [raw_rollout])
-        self.assertEqual(train_payload["groups"][0]["rewards"], [1.0])
-
-    def test_train_step_rejects_manual_rl_group_without_raw_rollouts(self):
-        rl_group = RLGroup(
-            skill="query",
-            question="What is this?",
-            rollouts=[{"answer": "A photo"}],
-            rewards=[1.0],
-        )
-
-        with self.assertRaises(ValueError):
-            self.client.train_step([rl_group])
-
-    def test_train_step_rejects_mutated_rewards_length(self):
-        rl_group = RLGroup(
-            skill="query",
-            question="What is this?",
-            rollouts=[{"answer": "A photo"}],
-            rewards=[1.0],
-            _request_payload={"skill": "query", "question": "What is this?"},
-            _rollouts_payload=[_raw_rollout("query", {"answer": "A photo"})],
-        )
-        rl_group.rewards.append(0.0)
-
-        with self.assertRaises(ValueError):
-            self.client.train_step([rl_group])
-
-    def test_train_step_rejects_mutated_rollouts_after_generation(self):
-        raw_rollouts = [
-            _raw_rollout("query", {"answer": "A photo"}),
-            _raw_rollout("query", {"answer": "A drawing"}),
-        ]
-        rl_group = RLGroup(
-            skill="query",
-            question="What is this?",
-            rollouts=[{"answer": "A photo"}, {"answer": "A drawing"}],
-            _request_payload={"skill": "query", "question": "What is this?"},
-            _rollouts_payload=raw_rollouts,
-        )
-        rl_group.rollouts = rl_group.rollouts[:1]
-        rl_group.rewards = [1.0]
-
-        with self.assertRaisesRegex(
-            ValueError, "RLGroup rollouts must not be mutated"
-        ):
-            self.client.train_step([rl_group])
-
-    def test_detect_rollouts_allow_empty_boxes_ground_truth(self):
-        response = {
-            "request": {
-                "skill": "detect",
-                "object": "vehicles",
-                "image_url": "data:image/jpeg;base64,abc",
-            },
-            "rollouts": [],
-        }
-
-        with mock.patch.object(self.client, "_request_json", return_value=response) as mocked:
-            self.client.detect_rollouts(
-                self.image,
-                "vehicles",
-                ground_truth={"boxes": []},
-            )
-
-        payload = mocked.call_args.kwargs["payload"]
-        self.assertEqual(payload["ground_truth"], {"boxes": []})
-
-    def test_detect_sft_targets_allow_empty_boxes(self):
-        group = SFTGroup.detect(
-            self.image,
-            "vehicles",
-            targets=[{"boxes": []}],
-        )
-
-        with mock.patch.object(
-            self.client, "_request_json", return_value={"step": 5, "applied": True}
-        ) as mocked:
+            group: RLGroup = {
+                "mode": "rl",
+                "request": response["request"],
+                "rollouts": response["rollouts"],
+                "rewards": [1.0],
+            }
             result = self.client.train_step([group])
 
-        self.assertEqual(result["step"], 5)
-        payload = mocked.call_args.kwargs["payload"]
-        self.assertEqual(payload["groups"][0]["targets"], [{"boxes": []}])
+        self.assertEqual(result["step"], 4)
+        train_payload = mocked.call_args_list[1].kwargs["payload"]
+        self.assertEqual(train_payload["groups"][0]["request"], rollout_response["request"])
+        self.assertEqual(train_payload["groups"][0]["rollouts"], rollout_response["rollouts"])
+        self.assertEqual(train_payload["groups"][0]["rewards"], [1.0])
 
-    def test_query_sft_target_validation(self):
-        with self.assertRaises(ValueError):
-            self.client.train_step(
-                [
-                    SFTGroup.query(
-                        question="Why?",
-                        image=self.image,
-                        reasoning=True,
-                        targets=[{"answer": "Because"}],
-                    )
-                ]
-            )
+    def test_train_step_rejects_rl_group_without_rewards(self):
+        group: RLGroup = {
+            "mode": "rl",
+            "request": {"skill": "query", "question": "What is this?"},
+            "rollouts": [_raw_rollout("query", {"answer": "A photo"})],
+        }
 
         with self.assertRaises(ValueError):
-            self.client.train_step(
-                [
-                    SFTGroup.query(
-                        question="Why?",
-                        image=self.image,
-                        reasoning=False,
-                        targets=[
-                            {
-                                "answer": "Because",
-                                "reasoning": {"text": "x", "grounding": []},
-                            }
-                        ],
-                    )
-                ]
-            )
+            self.client.train_step([group])
+
+    def test_train_step_rejects_mutated_rewards_length(self):
+        group: RLGroup = {
+            "mode": "rl",
+            "request": {"skill": "query", "question": "What is this?"},
+            "rollouts": [
+                _raw_rollout("query", {"answer": "A photo"}),
+                _raw_rollout("query", {"answer": "A drawing"}),
+            ],
+            "rewards": [1.0],
+        }
 
         with self.assertRaises(ValueError):
-            self.client.train_step([SFTGroup.query(question="Why?", targets=[])])
+            self.client.train_step([group])
 
     def test_request_json_retries_timeout_then_succeeds(self):
         attempts = {"count": 0}
@@ -564,31 +443,50 @@ class FinetuneTests(unittest.TestCase):
         for error in errors:
             error.close.assert_called_once()
 
-    def test_rollout_groups_preserves_order_and_concurrency_cap(self):
+    def test_train_step_does_not_retry_timeout(self):
+        group: RLGroup = {
+            "mode": "rl",
+            "request": {"skill": "query", "question": "What is this?"},
+            "rollouts": [_raw_rollout("query", {"answer": "A photo"})],
+            "rewards": [1.0],
+        }
+
+        with mock.patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.URLError(socket.timeout("timed out")),
+        ) as mocked:
+            with mock.patch("time.sleep") as mocked_sleep:
+                with self.assertRaises(FinetuneAPIError):
+                    self.client.train_step([group])
+
+        self.assertEqual(mocked.call_count, 1)
+        mocked_sleep.assert_not_called()
+
+    def test_batch_rollouts_preserves_order_and_concurrency_cap(self):
         active = {"count": 0, "max": 0}
 
-        async def fake_rollouts_async(group):
+        async def fake_rollouts_async(request):
             active["count"] += 1
             active["max"] = max(active["max"], active["count"])
             await __import__("asyncio").sleep(0.01)
             active["count"] -= 1
-            return RLGroup(
-                skill=group.skill,
-                question=group.question,
-                rollouts=[],
-                _request_payload={"skill": group.skill},
-                _rollouts_payload=[],
-            )
+            return {
+                "request": {"skill": request.skill, "question": request.question},
+                "rollouts": [],
+            }
 
-        groups = [RolloutGroup.query(question=f"q{i}") for i in range(5)]
+        requests = [RolloutRequest(skill="query", question=f"q{i}") for i in range(5)]
 
         with mock.patch.object(self.client, "_rollouts_async", side_effect=fake_rollouts_async):
-            rl_groups = self.client.rollout_groups(groups, max_concurrency=2)
+            groups = self.client.batch_rollouts(requests, max_concurrency=2)
 
-        self.assertEqual([group.question for group in rl_groups], [f"q{i}" for i in range(5)])
+        self.assertEqual(
+            [group["request"]["question"] for group in groups],
+            [f"q{i}" for i in range(5)],
+        )
         self.assertLessEqual(active["max"], 2)
 
-    def test_rollout_groups_drains_in_flight_requests_after_failure(self):
+    def test_batch_rollouts_drains_in_flight_requests_after_failure(self):
         client = Finetune(
             api_key="test-key",
             endpoint="https://api.example.test/v1/tuning",
@@ -624,20 +522,20 @@ class FinetuneTests(unittest.TestCase):
             q2_started.set()
             return {"request": payload["request"], "rollouts": []}
 
-        def run_rollout_groups():
+        def run_batch_rollouts():
             try:
-                client.rollout_groups(
+                client.batch_rollouts(
                     [
-                        RolloutGroup.query(question="q0"),
-                        RolloutGroup.query(question="q1"),
-                        RolloutGroup.query(question="q2"),
+                        RolloutRequest(skill="query", question="q0"),
+                        RolloutRequest(skill="query", question="q1"),
+                        RolloutRequest(skill="query", question="q2"),
                     ],
                     max_concurrency=2,
                 )
             except Exception as exc:
                 result["error"] = exc
 
-        worker = threading.Thread(target=run_rollout_groups)
+        worker = threading.Thread(target=run_batch_rollouts)
 
         with mock.patch.object(client, "_request_json_once", side_effect=request_json_once):
             worker.start()

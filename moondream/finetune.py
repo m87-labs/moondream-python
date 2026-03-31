@@ -1,6 +1,5 @@
 import asyncio
 import base64
-import copy
 import json
 import math
 import random
@@ -13,7 +12,7 @@ import urllib.parse
 import urllib.request
 from io import BytesIO
 from importlib.metadata import version as _pkg_version
-from typing import Dict, List, Mapping, Optional, Sequence, Union, cast
+from typing import Dict, List, Mapping, Optional, Sequence, Union
 
 from PIL import Image
 
@@ -21,24 +20,14 @@ from .types import (
     Base64EncodedImage,
     CheckpointInfo,
     CheckpointListOutput,
-    DetectGroundTruth,
-    DetectOutput,
-    DetectTarget,
-    FinetuneGroundTruth,
     FinetuneInfo,
     EncodedImage,
     MetricsLogOutput,
-    PointOutput,
-    PointGroundTruth,
-    PointTarget,
-    QueryOutput,
-    QueryTarget,
     RLGroup,
-    RolloutGroup,
-    RolloutOutput,
-    SamplingSettings,
+    RolloutRequest,
+    RolloutsResponse,
+    SkillRequest,
     SFTGroup,
-    SpatialRef,
     TrainStepOutput,
 )
 
@@ -46,7 +35,6 @@ __version__ = _pkg_version("moondream")
 
 DEFAULT_TUNING_ENDPOINT = "https://api.moondream.ai/v1/tuning"
 
-_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 _METRIC_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_/-]+$")
 _RETRY_STATUS_CODES = {408, 429, 500, 502, 503, 504, 524}
 _TRAIN_STEP_OUTPUT_KEYS = (
@@ -75,12 +63,6 @@ class FinetuneAPIError(RuntimeError):
 
 
 def _image_to_jpeg_bytes(image) -> bytes:
-    if isinstance(image, Base64EncodedImage):
-        data = image.image_url
-        if data.startswith("data:"):
-            data = data.split(",", 1)[1]
-        return base64.b64decode(data)
-
     if isinstance(image, Image.Image):
         try:
             if image.mode != "RGB":
@@ -100,16 +82,6 @@ def _encode_image(image) -> Base64EncodedImage:
     image_bytes = _image_to_jpeg_bytes(image)
     img_str = base64.b64encode(image_bytes).decode()
     return Base64EncodedImage(image_url=f"data:image/jpeg;base64,{img_str}")
-
-
-def _retry_after_seconds(headers) -> Optional[float]:
-    value = headers.get("Retry-After") if headers is not None else None
-    if value is None:
-        return None
-    try:
-        return max(0.0, float(value))
-    except ValueError:
-        return None
 
 
 def _error_message(exc: urllib.error.HTTPError) -> str:
@@ -234,11 +206,7 @@ class Finetune:
                 return {}
             return json.loads(body.decode("utf-8"))
 
-    def _backoff_delay(self, attempt: int, exc: Exception) -> float:
-        if isinstance(exc, urllib.error.HTTPError):
-            retry_after = _retry_after_seconds(exc.headers)
-            if retry_after is not None:
-                return retry_after
+    def _backoff_delay(self, attempt: int) -> float:
         max_delay = min(self.retry_max_delay, self.retry_base_delay * (2 ** attempt))
         return random.uniform(0.0, max_delay)
 
@@ -248,20 +216,22 @@ class Finetune:
         path: str,
         payload: Optional[dict] = None,
         query: Optional[dict] = None,
+        max_retries: Optional[int] = None,
     ) -> dict:
         last_error: Optional[Exception] = None
-        for attempt in range(self.max_retries + 1):
+        retries = self.max_retries if max_retries is None else max_retries
+        for attempt in range(retries + 1):
             try:
                 return self._request_json_once(method, path, payload=payload, query=query)
             except Exception as exc:
                 last_error = exc
-                if not _is_retryable_error(exc) or attempt == self.max_retries:
+                if not _is_retryable_error(exc) or attempt == retries:
                     if isinstance(exc, urllib.error.HTTPError):
                         _raise_http_error(path, exc)
                     raise FinetuneAPIError(f"{path} failed: {exc}") from exc
                 if isinstance(exc, urllib.error.HTTPError):
                     _close_http_error(exc)
-                time.sleep(self._backoff_delay(attempt, exc))
+                time.sleep(self._backoff_delay(attempt))
 
         raise FinetuneAPIError(f"{path} failed: {last_error}")
 
@@ -290,323 +260,94 @@ class Finetune:
                     raise FinetuneAPIError(f"{path} failed: {exc}") from exc
                 if isinstance(exc, urllib.error.HTTPError):
                     _close_http_error(exc)
-                await asyncio.sleep(self._backoff_delay(attempt, exc))
+                await asyncio.sleep(self._backoff_delay(attempt))
 
         raise FinetuneAPIError(f"{path} failed: {last_error}")
 
-    def _serialize_request(
-        self,
-        skill: str,
-        *,
-        image: Optional[Union[Image.Image, EncodedImage]] = None,
-        question: Optional[str] = None,
-        object: Optional[str] = None,
-        spatial_refs: Optional[Sequence[SpatialRef]] = None,
-        reasoning: bool = False,
-        settings: Optional[SamplingSettings] = None,
-    ) -> dict:
-        if skill == "query":
-            if question is None:
-                raise ValueError("question parameter is required")
-
-            payload = {
-                "skill": "query",
-                "question": question,
-            }
-            if image is not None:
-                payload["image_url"] = _encode_image(image).image_url
-            if spatial_refs is not None:
-                payload["spatial_refs"] = list(spatial_refs)
-            if reasoning:
-                payload["reasoning"] = True
-            settings_payload = dict(settings) if settings is not None else None
-            if settings_payload is not None:
-                payload["settings"] = settings_payload
-            return payload
-
-        if skill == "point":
-            if object is None:
-                raise ValueError("object parameter is required")
-            if image is None:
-                raise ValueError("image parameter is required")
-
-            payload = {
-                "skill": "point",
-                "object": object,
-                "image_url": _encode_image(image).image_url,
-            }
-            settings_payload = dict(settings) if settings is not None else None
-            if settings_payload is not None:
-                payload["settings"] = settings_payload
-            return payload
-
-        if skill == "detect":
-            if object is None:
-                raise ValueError("object parameter is required")
-            if image is None:
-                raise ValueError("image parameter is required")
-
-            payload = {
-                "skill": "detect",
-                "object": object,
-                "image_url": _encode_image(image).image_url,
-            }
-            settings_payload = dict(settings) if settings is not None else None
-            if settings_payload is not None:
-                payload["settings"] = settings_payload
-            return payload
-
-        raise ValueError("skill must be one of 'query', 'point', or 'detect'")
-
-    def _serialize_ground_truth(
-        self, skill: str, ground_truth: Optional[FinetuneGroundTruth]
-    ) -> Optional[dict]:
-        if ground_truth is None:
-            return None
-        if skill == "query":
-            raise ValueError("query rollouts do not support ground_truth")
-        if skill == "point":
-            return self._serialize_point_ground_truth(ground_truth)  # type: ignore[arg-type]
-        if skill == "detect":
-            return self._serialize_detect_ground_truth(ground_truth)  # type: ignore[arg-type]
-        raise ValueError(f"unsupported skill: {skill}")
-
-    def _serialize_point_ground_truth(self, ground_truth: PointGroundTruth) -> dict:
-        has_points = "points" in ground_truth
-        has_boxes = "boxes" in ground_truth
-        if has_points == has_boxes:
-            raise ValueError("point ground_truth requires exactly one of points or boxes")
-        if has_points:
-            return {"points": ground_truth["points"]}
-        return {"boxes": ground_truth["boxes"]}
-
-    def _serialize_detect_ground_truth(self, ground_truth: DetectGroundTruth) -> dict:
-        if "boxes" not in ground_truth:
-            raise ValueError("detect ground_truth requires boxes")
-        return {"boxes": ground_truth["boxes"]}
-
-    def _serialize_targets(self, request_payload: dict, targets: Sequence[dict]) -> List[dict]:
-        skill = request_payload["skill"]
-        if not targets:
-            raise ValueError("SFTGroup requires at least one target")
-        if skill == "query":
-            return [self._serialize_query_target(request_payload, target) for target in targets]
-        if skill == "point":
-            return [self._serialize_point_target(target) for target in targets]
-        if skill == "detect":
-            return [self._serialize_detect_target(target) for target in targets]
-        raise ValueError(f"unsupported skill: {skill}")
-
-    def _serialize_query_target(self, request_payload: dict, target: QueryTarget) -> dict:
-        answer = target.get("answer")
-        if answer is None:
-            raise ValueError("query SFT targets require answer")
-        payload = {"answer": answer}
-        if request_payload.get("reasoning"):
-            reasoning = target.get("reasoning")
-            if reasoning is None:
-                raise ValueError("query SFT targets require reasoning when request.reasoning is true")
-            payload["reasoning"] = reasoning
-        elif "reasoning" in target:
-            raise ValueError("query SFT targets should omit reasoning when request.reasoning is false")
+    def _request_payload(self, request: RolloutRequest) -> SkillRequest:
+        payload: SkillRequest = {"skill": request.skill}
+        if request.image is not None:
+            payload["image_url"] = _encode_image(request.image).image_url
+        if request.question is not None:
+            payload["question"] = request.question
+        if request.object is not None:
+            payload["object"] = request.object
+        if request.spatial_refs is not None:
+            payload["spatial_refs"] = list(request.spatial_refs)
+        if request.reasoning:
+            payload["reasoning"] = True
+        if request.settings is not None:
+            payload["settings"] = dict(request.settings)
         return payload
 
-    def _serialize_point_target(self, target: PointTarget) -> dict:
-        has_points = "points" in target
-        has_boxes = "boxes" in target
-        if has_points == has_boxes:
-            raise ValueError("point SFT targets require exactly one of points or boxes")
-        if has_points:
-            return {"points": target["points"]}
-        return {"boxes": target["boxes"]}
-
-    def _serialize_detect_target(self, target: DetectTarget) -> dict:
-        if "boxes" not in target:
-            raise ValueError("detect SFT targets require boxes")
-        return {"boxes": target["boxes"]}
-
-    def _serialize_group_request(
-        self,
-        group: Union[RolloutGroup, RLGroup[RolloutOutput], SFTGroup],
-    ) -> dict:
-        return self._serialize_request(
-            group.skill,
-            image=group.image,
-            question=group.question,
-            object=group.object,
-            spatial_refs=group.spatial_refs,
-            reasoning=group.reasoning,
-            settings=None if isinstance(group, SFTGroup) else group.settings,
-        )
-
-    def _rl_group_from_result(
-        self,
-        group: RolloutGroup,
-        request_payload: dict,
-        result: dict,
-    ) -> RLGroup[RolloutOutput]:
-        rollouts_payload = result.get("rollouts", [])
-        return RLGroup(
-            skill=group.skill,
-            rollouts=[copy.deepcopy(rollout.get("output", {})) for rollout in rollouts_payload],
-            image=group.image,
-            question=group.question,
-            object=group.object,
-            spatial_refs=group.spatial_refs,
-            reasoning=group.reasoning,
-            settings=group.settings,
-            rewards=result.get("rewards"),
-            _request_payload=result.get("request", request_payload),
-            _rollouts_payload=rollouts_payload,
-        )
-
-    def _rollouts_from_group(self, group: RolloutGroup) -> RLGroup[RolloutOutput]:
-        if group.num_rollouts < 1 or group.num_rollouts > 16:
-            raise ValueError("num_rollouts must be between 1 and 16")
-
-        request_payload = self._serialize_group_request(group)
+    def _rollouts_payload(self, request: RolloutRequest) -> dict:
         payload = {
             "finetune_id": self.finetune_id,
-            "num_rollouts": group.num_rollouts,
-            "request": request_payload,
+            "num_rollouts": request.num_rollouts,
+            "request": self._request_payload(request),
         }
-        ground_truth_payload = self._serialize_ground_truth(
-            request_payload["skill"], group.ground_truth
-        )
-        if ground_truth_payload is not None:
-            payload["ground_truth"] = ground_truth_payload
+        if request.ground_truth is not None:
+            payload["ground_truth"] = dict(request.ground_truth)
+        return payload
 
-        result = self._request_json("POST", "/rollouts", payload=payload)
-        return self._rl_group_from_result(group, request_payload, result)
+    def _rl_group_from_response(self, response: RolloutsResponse) -> RLGroup:
+        group: RLGroup = {
+            "mode": "rl",
+            "request": response["request"],
+            "rollouts": response.get("rollouts", []),
+        }
+        rewards = response.get("rewards")
+        if rewards is not None:
+            group["rewards"] = rewards
+        return group
+
+    def rollouts(self, request: RolloutRequest) -> RolloutsResponse:
+        """Generate rollouts for a single request.
+
+        Returns the raw `/rollouts` response with `request`, `rollouts`, and
+        optional `rewards`.
+        """
+        return self._request_json(
+            "POST",
+            "/rollouts",
+            payload=self._rollouts_payload(request),
+        )
 
     def delete(self) -> None:
         self._request_json("DELETE", f"/finetunes/{self.finetune_id}")
 
-    def query_rollouts(
-        self,
-        image: Optional[Union[Image.Image, EncodedImage]] = None,
-        question: Optional[str] = None,
-        num_rollouts: int = 1,
-        settings: Optional[SamplingSettings] = None,
-        reasoning: bool = False,
-        spatial_refs: Optional[Sequence[SpatialRef]] = None,
-    ) -> RLGroup[QueryOutput]:
-        """Generate query rollouts.
-
-        Query settings typically use `temperature`, `top_p`, and `max_tokens`.
-
-        Returns:
-            RLGroup: `group.rollouts` is a list of query output dicts such as
-            `{"answer": "People are smiling for a photo."}`. When `reasoning=True`,
-            each rollout may also include `{"reasoning": ...}`.
-        """
-        if question is None:
-            raise ValueError("question parameter is required")
-        group = self._rollouts_from_group(
-            RolloutGroup.query(
-                question=question,
-                image=image,
-                num_rollouts=num_rollouts,
-                settings=settings,
-                reasoning=reasoning,
-                spatial_refs=list(spatial_refs) if spatial_refs is not None else None,
-            )
+    async def _rollouts_async(self, request: RolloutRequest) -> RolloutsResponse:
+        return await self._request_json_async(
+            "POST",
+            "/rollouts",
+            payload=self._rollouts_payload(request),
         )
-        return cast(RLGroup[QueryOutput], group)
 
-    def point_rollouts(
+    def batch_rollouts(
         self,
-        image: Union[Image.Image, EncodedImage],
-        object: str,
-        num_rollouts: int = 1,
-        settings: Optional[SamplingSettings] = None,
-        ground_truth: Optional[PointGroundTruth] = None,
-    ) -> RLGroup[PointOutput]:
-        """Generate point rollouts.
-
-        Point settings typically use `temperature`, `top_p`, and `max_objects`.
-
-        Returns:
-            RLGroup: `group.rollouts` is a list of point output dicts such as
-            `{"points": [{"x": 0.24, "y": 0.58}, {"x": 0.71, "y": 0.61}]}`.
-        """
-        group = self._rollouts_from_group(
-            RolloutGroup.point(
-                image=image,
-                object=object,
-                num_rollouts=num_rollouts,
-                settings=settings,
-                ground_truth=ground_truth,
-            )
-        )
-        return cast(RLGroup[PointOutput], group)
-
-    def detect_rollouts(
-        self,
-        image: Union[Image.Image, EncodedImage],
-        object: str,
-        num_rollouts: int = 1,
-        settings: Optional[SamplingSettings] = None,
-        ground_truth: Optional[DetectGroundTruth] = None,
-    ) -> RLGroup[DetectOutput]:
-        """Generate detect rollouts.
-
-        Detect settings typically use `temperature`, `top_p`, and `max_objects`.
-
-        Returns:
-            RLGroup: `group.rollouts` is a list of detect output dicts such as
-            `{"objects": [{"x_min": 0.12, "y_min": 0.08, "x_max": 0.41, "y_max": 0.95}]}`.
-        """
-        group = self._rollouts_from_group(
-            RolloutGroup.detect(
-                image=image,
-                object=object,
-                num_rollouts=num_rollouts,
-                settings=settings,
-                ground_truth=ground_truth,
-            )
-        )
-        return cast(RLGroup[DetectOutput], group)
-
-    async def _rollouts_async(self, group: RolloutGroup) -> RLGroup[RolloutOutput]:
-        if group.num_rollouts < 1 or group.num_rollouts > 16:
-            raise ValueError("num_rollouts must be between 1 and 16")
-
-        request_payload = self._serialize_group_request(group)
-        payload = {
-            "finetune_id": self.finetune_id,
-            "num_rollouts": group.num_rollouts,
-            "request": request_payload,
-        }
-        ground_truth_payload = self._serialize_ground_truth(
-            request_payload["skill"], group.ground_truth
-        )
-        if ground_truth_payload is not None:
-            payload["ground_truth"] = ground_truth_payload
-
-        result = await self._request_json_async("POST", "/rollouts", payload=payload)
-        return self._rl_group_from_result(group, request_payload, result)
-
-    def rollout_groups(
-        self,
-        groups: Sequence[RolloutGroup],
+        requests: Sequence[RolloutRequest],
         max_concurrency: int = 4,
-    ) -> List[RLGroup[RolloutOutput]]:
+    ) -> List[RLGroup]:
+        """Generate multiple rollout requests in parallel.
+
+        Returns RL groups with `mode`, `request`, and `rollouts` populated.
+        Fill `group["rewards"]` before calling `train_step(...)`.
+        """
         if max_concurrency < 1:
             raise ValueError("max_concurrency must be at least 1")
-        groups_list = list(groups)
-        if not groups_list:
+        requests_list = list(requests)
+        if not requests_list:
             return []
         return self._run_async(
-            self._rollout_groups_async(groups_list, max_concurrency=max_concurrency)
+            self._batch_rollouts_async(requests_list, max_concurrency=max_concurrency)
         )
 
-    async def _rollout_groups_async(
+    async def _batch_rollouts_async(
         self,
-        groups: Sequence[RolloutGroup],
+        requests: Sequence[RolloutRequest],
         max_concurrency: int,
-    ) -> List[RLGroup[RolloutOutput]]:
-        results: List[Optional[RLGroup[RolloutOutput]]] = [None] * len(groups)
+    ) -> List[RLGroup]:
+        results: List[Optional[RLGroup]] = [None] * len(requests)
         next_index = 0
         first_error: Optional[BaseException] = None
         lock = asyncio.Lock()
@@ -617,13 +358,14 @@ class Finetune:
 
             while True:
                 async with lock:
-                    if stop.is_set() or next_index >= len(groups):
+                    if stop.is_set() or next_index >= len(requests):
                         return
                     index = next_index
                     next_index += 1
 
                 try:
-                    results[index] = await self._rollouts_async(groups[index])
+                    response = await self._rollouts_async(requests[index])
+                    results[index] = self._rl_group_from_response(response)
                 except Exception as exc:
                     if not stop.is_set():
                         first_error = exc
@@ -632,7 +374,7 @@ class Finetune:
 
         tasks = [
             asyncio.create_task(worker())
-            for _ in range(min(max_concurrency, len(groups)))
+            for _ in range(min(max_concurrency, len(requests)))
         ]
         await asyncio.gather(*tasks)
 
@@ -643,7 +385,7 @@ class Finetune:
 
     def train_step(
         self,
-        groups: Sequence[Union[RLGroup[RolloutOutput], SFTGroup]],
+        groups: Sequence[Union[RLGroup, SFTGroup]],
         lr: float = 0.002,
     ) -> TrainStepOutput:
         if not groups:
@@ -651,54 +393,36 @@ class Finetune:
 
         payload_groups = []
         for group in groups:
-            if isinstance(group, RLGroup):
-                if group.rewards is None:
+            mode = group.get("mode")
+            if mode == "rl":
+                rewards = group.get("rewards")
+                rollouts = group.get("rollouts")
+                if rewards is None:
                     raise ValueError("RLGroup rewards must be set before train_step")
-                request_payload = group._request_payload
-                if request_payload is None:
-                    request_payload = self._serialize_group_request(group)
-                rollouts_payload = group._rollouts_payload
-                if rollouts_payload is None:
-                    raise ValueError(
-                        "RLGroup rollouts must come from ft.*_rollouts before train_step"
-                    )
-                if len(group.rollouts) != len(rollouts_payload):
-                    raise ValueError(
-                        "RLGroup rollouts must not be mutated after ft.*_rollouts"
-                    )
-                if len(group.rewards) != len(rollouts_payload):
+                if rollouts is None:
+                    raise ValueError("RLGroup requires rollouts")
+                if len(rewards) != len(rollouts):
                     raise ValueError("rewards must match rollouts length")
-                payload_groups.append(
-                    {
-                        "mode": "rl",
-                        "request": request_payload,
-                        "rollouts": rollouts_payload,
-                        "rewards": group.rewards,
-                    }
-                )
+                payload_groups.append(group)
                 continue
 
-            if isinstance(group, SFTGroup):
-                request_payload = self._serialize_group_request(group)
-                payload_groups.append(
-                    {
-                        "mode": "sft",
-                        "request": request_payload,
-                        "targets": self._serialize_targets(
-                            request_payload, group.targets
-                        ),
-                    }
-                )
+            if mode == "sft":
+                payload_groups.append(group)
                 continue
 
-            raise ValueError("train_step groups must be RLGroup or SFTGroup")
+            raise ValueError("train_step groups must have mode 'rl' or 'sft'")
 
         payload = {
             "finetune_id": self.finetune_id,
             "groups": payload_groups,
             "lr": lr,
         }
-        result = self._request_json("POST", "/train_step", payload=payload)
+        result = self._request_json(
+            "POST",
+            "/train_step",
+            payload=payload,
+            max_retries=0,
+        )
         return {key: result[key] for key in _TRAIN_STEP_OUTPUT_KEYS if key in result}
 
     def log_metrics(
@@ -801,11 +525,6 @@ class Finetune:
         return result["value"]
 
 
-def _validate_name(name: str):
-    if not _NAME_PATTERN.fullmatch(name):
-        raise ValueError("name must use only alphanumeric characters, hyphens, or underscores")
-
-
 def ft(
     api_key: Optional[str] = None,
     *,
@@ -841,8 +560,6 @@ def ft(
 
     if name is None or rank is None:
         raise ValueError("ft requires either finetune_id or both name and rank")
-
-    _validate_name(name)
 
     client = Finetune(
         api_key=api_key,

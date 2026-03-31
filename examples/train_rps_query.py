@@ -77,13 +77,16 @@ def evaluate(ft, examples: list[dict]) -> float:
 
     correct = 0
     for example in examples:
-        group = ft.query_rollouts(
-            image=example["image"],
-            question=QUESTION,
-            num_rollouts=1,
-            settings=EVAL_SETTINGS,
+        response = ft.rollouts(
+            md.types.RolloutRequest(
+                skill="query",
+                image=example["image"],
+                question=QUESTION,
+                num_rollouts=1,
+                settings=EVAL_SETTINGS,
+            )
         )
-        answer = group.rollouts[0].get("answer", "")
+        answer = response["rollouts"][0]["output"].get("answer", "")
         correct += int(reward(answer, example["answer"]))
 
     return correct / len(examples)
@@ -136,18 +139,28 @@ def main():
     for _ in range(args.steps):
         example = next(train_examples)
 
-        rl_group = ft.query_rollouts(
-            image=example["image"],
-            question=QUESTION,
-            num_rollouts=args.num_rollouts,
-            settings=TRAIN_SETTINGS,
+        response = ft.rollouts(
+            md.types.RolloutRequest(
+                skill="query",
+                image=example["image"],
+                question=QUESTION,
+                num_rollouts=args.num_rollouts,
+                settings=TRAIN_SETTINGS,
+            )
         )
-        rl_group.rewards = [
-            reward(rollout["answer"], example["answer"]) for rollout in rl_group.rollouts
+        rewards = [
+            reward(rollout["output"].get("answer", ""), example["answer"])
+            for rollout in response["rollouts"]
         ]
+        rl_group: md.types.RLGroup = {
+            "mode": "rl",
+            "request": response["request"],
+            "rollouts": response["rollouts"],
+            "rewards": rewards,
+        }
 
         step = ft.train_step([rl_group], lr=args.lr)
-        reward_mean = sum(rl_group.rewards) / len(rl_group.rewards)
+        reward_mean = sum(rewards) / len(rewards)
         print(
             f"step={step['step']} label={example['answer']} reward_mean={reward_mean:.3f}",
             flush=True,
