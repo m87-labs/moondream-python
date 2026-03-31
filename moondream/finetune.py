@@ -41,19 +41,6 @@ DEFAULT_TUNING_ENDPOINT = "https://api.moondream.ai/v1/tuning"
 _RETRY_STATUS_CODES = {408, 429, 500, 502, 503, 504, 524}
 
 
-class FinetuneAPIError(RuntimeError):
-    def __init__(
-        self,
-        message: str,
-        *,
-        status: Optional[int] = None,
-        body: Optional[object] = None,
-    ):
-        super().__init__(message)
-        self.status = status
-        self.body = body
-
-
 def _encode_image(image) -> Base64EncodedImage:
     if isinstance(image, Base64EncodedImage):
         return image
@@ -70,54 +57,12 @@ def _encode_image(image) -> Base64EncodedImage:
         raise ValueError("Failed to convert image to JPEG.") from exc
 
 
-def _error_message(exc: urllib.error.HTTPError) -> str:
-    body = ""
-    try:
-        body = exc.read().decode("utf-8")
-    except Exception:
-        body = ""
-
-    if body:
-        try:
-            parsed = json.loads(body)
-        except json.JSONDecodeError:
-            parsed = None
-        if isinstance(parsed, dict):
-            for key in ("error", "message", "detail"):
-                value = parsed.get(key)
-                if isinstance(value, str) and value:
-                    return value
-        if body.strip():
-            return body.strip()
-
-    return exc.reason if isinstance(exc.reason, str) else str(exc.reason)
-
-
-def _is_retryable_error(exc: Exception) -> bool:
+def _is_retryable(exc: Exception) -> bool:
     if isinstance(exc, urllib.error.HTTPError):
         return exc.code in _RETRY_STATUS_CODES
     if isinstance(exc, urllib.error.URLError):
         return True
     return isinstance(exc, (TimeoutError, socket.timeout))
-
-
-def _close_http_error(exc: urllib.error.HTTPError):
-    try:
-        exc.close()
-    except Exception:
-        pass
-
-
-def _raise_http_error(path: str, exc: urllib.error.HTTPError):
-    try:
-        message = _error_message(exc)
-    finally:
-        _close_http_error(exc)
-    raise FinetuneAPIError(
-        f"{path} failed with status {exc.code}: {message}",
-        status=exc.code,
-        body=message,
-    ) from exc
 
 
 class Finetune:
@@ -204,22 +149,17 @@ class Finetune:
         query: Optional[dict] = None,
         max_retries: Optional[int] = None,
     ) -> dict:
-        last_error: Optional[Exception] = None
         retries = self.max_retries if max_retries is None else max_retries
+        last_exc: Optional[Exception] = None
         for attempt in range(retries + 1):
             try:
                 return self._request_json_once(method, path, payload=payload, query=query)
             except Exception as exc:
-                last_error = exc
-                if not _is_retryable_error(exc) or attempt == retries:
-                    if isinstance(exc, urllib.error.HTTPError):
-                        _raise_http_error(path, exc)
-                    raise FinetuneAPIError(f"{path} failed: {exc}") from exc
-                if isinstance(exc, urllib.error.HTTPError):
-                    _close_http_error(exc)
+                last_exc = exc
+                if not _is_retryable(exc) or attempt == retries:
+                    raise
                 time.sleep(self._backoff_delay(attempt))
-
-        raise FinetuneAPIError(f"{path} failed: {last_error}")
+        raise last_exc  # unreachable, but keeps the type checker happy
 
     def _request_payload(
         self,

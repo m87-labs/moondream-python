@@ -9,7 +9,7 @@ from unittest import mock
 import moondream as md
 from PIL import Image
 
-from moondream.finetune import Finetune, FinetuneAPIError, ft
+from moondream.finetune import Finetune, ft
 from moondream.types import EncodedImage, RLGroup, SFTGroup
 
 
@@ -433,28 +433,24 @@ class FinetuneTests(unittest.TestCase):
             "urllib.request.urlopen",
             side_effect=error,
         ) as mocked:
-            with self.assertRaises(FinetuneAPIError) as ctx:
+            with self.assertRaises(urllib.error.HTTPError):
                 self.client._request_json("GET", "/finetunes/ft_123")
 
-        self.assertEqual(ctx.exception.status, 401)
-        self.assertEqual(ctx.exception.body, "invalid api key")
-        self.assertIn("401", str(ctx.exception))
         self.assertEqual(mocked.call_count, 1)
-        error.close.assert_called_once()
 
     def test_request_json_retries_524_then_succeeds(self):
-        errors = [_http_error(524, "error code: 524"), _http_error(524, "error code: 524")]
-
         with mock.patch(
             "urllib.request.urlopen",
-            side_effect=[errors[0], errors[1], _FakeResponse({"ok": True})],
+            side_effect=[
+                _http_error(524, "error code: 524"),
+                _http_error(524, "error code: 524"),
+                _FakeResponse({"ok": True}),
+            ],
         ):
             with mock.patch("time.sleep"):
                 result = self.client._request_json("POST", "/rollouts", payload={"x": 1})
 
         self.assertEqual(result, {"ok": True})
-        for error in errors:
-            error.close.assert_called_once()
 
     def test_train_step_does_not_retry_timeout(self):
         group: RLGroup = {
@@ -469,7 +465,7 @@ class FinetuneTests(unittest.TestCase):
             side_effect=urllib.error.URLError(socket.timeout("timed out")),
         ) as mocked:
             with mock.patch("time.sleep") as mocked_sleep:
-                with self.assertRaises(FinetuneAPIError):
+                with self.assertRaises(urllib.error.URLError):
                     self.client.train_step([group])
 
         self.assertEqual(mocked.call_count, 1)
@@ -505,7 +501,7 @@ class FinetuneTests(unittest.TestCase):
         def fake_rollouts(skill, **kwargs):
             call_count[0] += 1
             if call_count[0] == 2:
-                raise FinetuneAPIError("boom")
+                raise RuntimeError("boom")
             time.sleep(0.02)
             return {
                 "request": {"skill": skill, "question": kwargs.get("question", "")},
@@ -515,7 +511,7 @@ class FinetuneTests(unittest.TestCase):
         items = [(i, {"skill": "query", "question": f"q{i}"}) for i in range(10)]
 
         with mock.patch.object(self.client, "rollouts", side_effect=fake_rollouts):
-            with self.assertRaises(FinetuneAPIError):
+            with self.assertRaises(RuntimeError):
                 list(self.client.rollout_stream(items, max_concurrency=2))
 
     def test_rollout_stream_stops_before_extra_requests_on_error(self):
@@ -529,7 +525,7 @@ class FinetuneTests(unittest.TestCase):
             with lock:
                 started.append(question)
             if question == "q1":
-                raise FinetuneAPIError("boom")
+                raise RuntimeError("boom")
             time.sleep(0.1)
             return {
                 "request": {"skill": skill, "question": question},
@@ -539,7 +535,7 @@ class FinetuneTests(unittest.TestCase):
         items = [(i, {"skill": "query", "question": f"q{i}"}) for i in range(20)]
 
         with mock.patch.object(self.client, "rollouts", side_effect=fake_rollouts):
-            with self.assertRaises(FinetuneAPIError):
+            with self.assertRaises(RuntimeError):
                 list(self.client.rollout_stream(
                     items, max_concurrency=2, buffer_size=1,
                 ))

@@ -26,12 +26,9 @@ import moondream as md
 API_KEY = os.environ["MOONDREAM_API_KEY"]
 HF_TOKEN = os.environ["HF_TOKEN"]
 
-DATASET_NAME = "moondream/classification"
-DATASET_SUBSET = "real-rps"
 QUESTION = "Is this rock, paper, or scissors? Respond with rock, paper, or scissors only."
 TRAIN_SETTINGS = {"temperature": 1.0, "top_p": 1.0, "max_tokens": 4}
 EVAL_SETTINGS = {"temperature": 0.0, "top_p": 1.0, "max_tokens": 4}
-VALID_LABELS = ("rock", "paper", "scissors")
 
 STEPS = 20
 NUM_ROLLOUTS = 4
@@ -41,36 +38,22 @@ LR = 0.001
 RANK = 8
 
 
-def normalize_label(text: str) -> str:
-    lowered = " ".join(text.strip().lower().split())
-    if "scissor" in lowered:
-        return "scissors"
-    for label in VALID_LABELS:
-        if label in lowered:
-            return label
-    return ""
-
-
 def reward(answer: str, expected: str) -> float:
-    return 1.0 if normalize_label(answer) == normalize_label(expected) else 0.0
+    return 1.0 if answer.strip().lower() == expected else 0.0
 
 
 def iter_examples(target_split: str):
     dataset = load_dataset(
-        DATASET_NAME,
-        DATASET_SUBSET,
+        "moondream/classification",
+        "real-rps",
         split="train",
         streaming=True,
         token=HF_TOKEN,
-    )
+    ).filter(lambda row: row.get("split", "").lower() == target_split)
 
     while True:
         for row in dataset:
-            row_split = str(row.get("split", "")).lower()
-            if row_split != target_split:
-                continue
-
-            label = normalize_label(str(row.get("class", "")))
+            label = row.get("class", "")
             image = row.get("image")
             if not label or image is None:
                 continue
