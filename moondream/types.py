@@ -17,12 +17,6 @@ class Base64EncodedImage(EncodedImage):
 
 SamplingSettings = TypedDict(
     "SamplingSettings",
-    {"max_tokens": int},
-    total=False,
-)
-
-FinetuneSamplingSettings = TypedDict(
-    "FinetuneSamplingSettings",
     {
         "temperature": float,
         "top_p": float,
@@ -95,47 +89,6 @@ SegmentStreamChunk = TypedDict(
 
 SegmentStreamOutput = Generator[SegmentStreamChunk, None, None]
 
-QueryFinetuneRequest = TypedDict(
-    "QueryFinetuneRequest",
-    {
-        "skill": Literal["query"],
-        "question": str,
-        "image": Optional[Union[Image.Image, EncodedImage]],
-        "spatial_refs": List[SpatialRef],
-        "reasoning": bool,
-        "settings": FinetuneSamplingSettings,
-    },
-    total=False,
-)
-
-PointFinetuneRequest = TypedDict(
-    "PointFinetuneRequest",
-    {
-        "skill": Literal["point"],
-        "object": str,
-        "image": Union[Image.Image, EncodedImage],
-        "settings": FinetuneSamplingSettings,
-    },
-    total=False,
-)
-
-DetectFinetuneRequest = TypedDict(
-    "DetectFinetuneRequest",
-    {
-        "skill": Literal["detect"],
-        "object": str,
-        "image": Union[Image.Image, EncodedImage],
-        "settings": FinetuneSamplingSettings,
-    },
-    total=False,
-)
-
-FinetuneRequest = Union[
-    QueryFinetuneRequest,
-    PointFinetuneRequest,
-    DetectFinetuneRequest,
-]
-
 PointGroundTruth = TypedDict(
     "PointGroundTruth",
     {
@@ -171,8 +124,8 @@ DetectTarget = TypedDict("DetectTarget", {"boxes": List[Region]})
 
 SFTTarget = Union[QueryTarget, PointTarget, DetectTarget]
 
-RolloutOutput = TypedDict(
-    "RolloutOutput",
+_RawRolloutOutput = TypedDict(
+    "_RawRolloutOutput",
     {
         "answer": str,
         "reasoning": Optional[Reasoning],
@@ -182,12 +135,12 @@ RolloutOutput = TypedDict(
     total=False,
 )
 
-Rollout = TypedDict(
-    "Rollout",
+_RawRollout = TypedDict(
+    "_RawRollout",
     {
         "skill": Literal["query", "point", "detect"],
         "finish_reason": str,
-        "output": RolloutOutput,
+        "output": _RawRolloutOutput,
         "answer_tokens": List[int],
         "thinking_tokens": List[int],
         "has_answer_separator": bool,
@@ -196,6 +149,8 @@ Rollout = TypedDict(
     },
     total=False,
 )
+
+RolloutOutput = Union[QueryOutput, PointOutput, DetectOutput]
 
 TrainStepOutput = TypedDict(
     "TrainStepOutput",
@@ -257,18 +212,92 @@ CheckpointDownload = TypedDict(
 
 
 @dataclass(frozen=True)
-class RolloutSpec:
-    request: FinetuneRequest
+class RolloutGroup:
+    skill: Literal["query", "point", "detect"]
     num_rollouts: int = 1
+    image: Optional[Union[Image.Image, EncodedImage]] = None
+    question: Optional[str] = None
+    object: Optional[str] = None
+    spatial_refs: Optional[List[SpatialRef]] = None
+    reasoning: bool = False
+    settings: Optional[SamplingSettings] = None
     ground_truth: Optional[FinetuneGroundTruth] = None
+
+    @classmethod
+    def query(
+        cls,
+        question: str,
+        image: Optional[Union[Image.Image, EncodedImage]] = None,
+        *,
+        num_rollouts: int = 1,
+        settings: Optional[SamplingSettings] = None,
+        reasoning: bool = False,
+        spatial_refs: Optional[List[SpatialRef]] = None,
+    ) -> "RolloutGroup":
+        return cls(
+            skill="query",
+            num_rollouts=num_rollouts,
+            image=image,
+            question=question,
+            spatial_refs=spatial_refs,
+            reasoning=reasoning,
+            settings=settings,
+        )
+
+    @classmethod
+    def point(
+        cls,
+        image: Union[Image.Image, EncodedImage],
+        object: str,
+        *,
+        num_rollouts: int = 1,
+        settings: Optional[SamplingSettings] = None,
+        ground_truth: Optional[PointGroundTruth] = None,
+    ) -> "RolloutGroup":
+        return cls(
+            skill="point",
+            num_rollouts=num_rollouts,
+            image=image,
+            object=object,
+            settings=settings,
+            ground_truth=ground_truth,
+        )
+
+    @classmethod
+    def detect(
+        cls,
+        image: Union[Image.Image, EncodedImage],
+        object: str,
+        *,
+        num_rollouts: int = 1,
+        settings: Optional[SamplingSettings] = None,
+        ground_truth: Optional[DetectGroundTruth] = None,
+    ) -> "RolloutGroup":
+        return cls(
+            skill="detect",
+            num_rollouts=num_rollouts,
+            image=image,
+            object=object,
+            settings=settings,
+            ground_truth=ground_truth,
+        )
 
 
 @dataclass(frozen=True)
 class RLGroup:
-    request: FinetuneRequest
-    rollouts: List[Rollout]
+    skill: Literal["query", "point", "detect"]
+    rollouts: List[RolloutOutput]
+    image: Optional[Union[Image.Image, EncodedImage]] = None
+    question: Optional[str] = None
+    object: Optional[str] = None
+    spatial_refs: Optional[List[SpatialRef]] = None
+    reasoning: bool = False
+    settings: Optional[SamplingSettings] = None
     rewards: Optional[List[float]] = None
     _request_payload: Optional[dict] = field(default=None, repr=False, compare=False)
+    _rollouts_payload: Optional[List[_RawRollout]] = field(
+        default=None, repr=False, compare=False
+    )
 
     def with_rewards(self, rewards: Sequence[float]) -> "RLGroup":
         rewards_list = list(rewards)
@@ -279,8 +308,69 @@ class RLGroup:
 
 @dataclass(frozen=True)
 class SFTGroup:
-    request: FinetuneRequest
+    skill: Literal["query", "point", "detect"]
     targets: List[SFTTarget]
+    image: Optional[Union[Image.Image, EncodedImage]] = None
+    question: Optional[str] = None
+    object: Optional[str] = None
+    spatial_refs: Optional[List[SpatialRef]] = None
+    reasoning: bool = False
+    settings: Optional[SamplingSettings] = None
+
+    @classmethod
+    def query(
+        cls,
+        question: str,
+        targets: Sequence[QueryTarget],
+        image: Optional[Union[Image.Image, EncodedImage]] = None,
+        *,
+        settings: Optional[SamplingSettings] = None,
+        reasoning: bool = False,
+        spatial_refs: Optional[List[SpatialRef]] = None,
+    ) -> "SFTGroup":
+        return cls(
+            skill="query",
+            targets=list(targets),
+            image=image,
+            question=question,
+            spatial_refs=spatial_refs,
+            reasoning=reasoning,
+            settings=settings,
+        )
+
+    @classmethod
+    def point(
+        cls,
+        image: Union[Image.Image, EncodedImage],
+        object: str,
+        targets: Sequence[PointTarget],
+        *,
+        settings: Optional[SamplingSettings] = None,
+    ) -> "SFTGroup":
+        return cls(
+            skill="point",
+            targets=list(targets),
+            image=image,
+            object=object,
+            settings=settings,
+        )
+
+    @classmethod
+    def detect(
+        cls,
+        image: Union[Image.Image, EncodedImage],
+        object: str,
+        targets: Sequence[DetectTarget],
+        *,
+        settings: Optional[SamplingSettings] = None,
+    ) -> "SFTGroup":
+        return cls(
+            skill="detect",
+            targets=list(targets),
+            image=image,
+            object=object,
+            settings=settings,
+        )
 
 
 class VLM(ABC):

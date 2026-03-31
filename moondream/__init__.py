@@ -3,7 +3,7 @@ from typing import Optional
 
 from .cloud_vl import CloudVL
 from .finetune import DEFAULT_TUNING_ENDPOINT, FinetuneAPIError, ft
-from .types import RLGroup, RolloutSpec, SFTGroup
+from .types import RLGroup, RolloutGroup, SFTGroup
 
 __version__ = _pkg_version("moondream")
 
@@ -41,7 +41,7 @@ __all__ = [
     "DEFAULT_TUNING_ENDPOINT",
     "FinetuneAPIError",
     "RLGroup",
-    "RolloutSpec",
+    "RolloutGroup",
     "SFTGroup",
     "ft",
     "vl",
