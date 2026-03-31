@@ -333,28 +333,14 @@ class Finetune:
             "groups": list(groups),
             "lr": lr,
         }
-        result = self._request_json("POST", "/train_step", payload=payload)
-        return result
+        return self._request_json("POST", "/train_step", payload=payload)
 
     def log_metrics(
         self,
         step: int,
         metrics: Mapping[str, float],
     ) -> MetricsLogOutput:
-        """Log user-defined metrics for a training step.
-
-        Metric names must match `[A-Za-z0-9_/-]+`, cannot start with `sys/` or
-        `usr/`, and values must be finite numbers.
-
-        Example:
-            ft.log_metrics(
-                step=step_output["step"],
-                metrics={
-                    "eval/country_match": 0.63,
-                    "eval/token_f1": 0.64,
-                },
-            )
-        """
+        """Log user-defined metrics for a training step."""
         return self._request_json(
             "POST",
             f"/finetunes/{self.finetune_id}/metrics",

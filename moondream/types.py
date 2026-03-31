@@ -90,10 +90,7 @@ SegmentStreamOutput = Generator[SegmentStreamChunk, None, None]
 
 PointGroundTruth = TypedDict(
     "PointGroundTruth",
-    {
-        "points": List[Point],
-        "boxes": List[Region],
-    },
+    {"points": List[Point], "boxes": List[Region]},
     total=False,
 )
 
@@ -104,19 +101,13 @@ Skill = Literal["query", "point", "detect"]
 
 QueryTarget = TypedDict(
     "QueryTarget",
-    {
-        "answer": str,
-        "reasoning": Reasoning,
-    },
+    {"answer": str, "reasoning": Reasoning},
     total=False,
 )
 
 PointTarget = TypedDict(
     "PointTarget",
-    {
-        "points": List[Point],
-        "boxes": List[Region],
-    },
+    {"points": List[Point], "boxes": List[Region]},
     total=False,
 )
 
@@ -236,10 +227,7 @@ CheckpointListOutput = TypedDict(
 
 SaveCheckpointOutput = TypedDict(
     "SaveCheckpointOutput",
-    {
-        "ok": bool,
-        "checkpoint": CheckpointInfo,
-    },
+    {"ok": bool, "checkpoint": CheckpointInfo},
     total=False,
 )
 
