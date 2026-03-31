@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import Generator, Generic, List, Literal, Optional, Sequence, TypeVar, TypedDict, Union
-
 from PIL import Image
+from dataclasses import dataclass, field
+from typing import Generator, Generic, List, TypedDict, Union, Optional, Literal, Sequence, TypeVar
 
 
 @dataclass
@@ -35,25 +34,25 @@ ReasoningGrounding = TypedDict(
     {
         "start_idx": int,
         "end_idx": int,
-        "points": List[List[int]],
-    },
+        "points": List[List[int]]  # List of [x, y] coordinate pairs
+    }
 )
 
 Reasoning = TypedDict(
     "Reasoning",
     {
         "text": str,
-        "grounding": List[ReasoningGrounding],
-    },
+        "grounding": List[ReasoningGrounding]
+    }
 )
 
 QueryOutput = TypedDict(
-    "QueryOutput",
+    "QueryOutput", 
     {
-        "answer": Union[str, Generator[str, None, None]],
-        "reasoning": Optional[Reasoning],
+        "answer": Union[str, Generator[str, None, None]], 
+        "reasoning": Optional[Reasoning]
     },
-    total=False,
+    total=False
 )
 
 Region = TypedDict(
