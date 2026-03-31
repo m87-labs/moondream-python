@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from typing import Generator, List, Literal, Optional, Sequence, TypedDict, Union
 
 from PIL import Image
@@ -283,7 +283,7 @@ class RolloutGroup:
         )
 
 
-@dataclass(frozen=True)
+@dataclass
 class RLGroup:
     skill: Literal["query", "point", "detect"]
     rollouts: List[RolloutOutput]
@@ -299,11 +299,14 @@ class RLGroup:
         default=None, repr=False, compare=False
     )
 
-    def with_rewards(self, rewards: Sequence[float]) -> "RLGroup":
-        rewards_list = list(rewards)
-        if len(rewards_list) != len(self.rollouts):
-            raise ValueError("rewards must match rollouts length")
-        return replace(self, rewards=rewards_list)
+    def __setattr__(self, name, value):
+        if name == "rewards" and value is not None:
+            rewards = list(value)
+            rollouts = self.__dict__.get("rollouts")
+            if rollouts is not None and len(rewards) != len(rollouts):
+                raise ValueError("rewards must match rollouts length")
+            value = rewards
+        object.__setattr__(self, name, value)
 
 
 @dataclass(frozen=True)

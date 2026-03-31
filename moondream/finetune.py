@@ -617,6 +617,8 @@ class Finetune:
             if isinstance(group, RLGroup):
                 if group.rewards is None:
                     raise ValueError("RLGroup rewards must be set before train_step")
+                if len(group.rewards) != len(group.rollouts):
+                    raise ValueError("rewards must match rollouts length")
                 request_payload = group._request_payload
                 if request_payload is None:
                     request_payload = self._serialize_group_request(group)

@@ -205,7 +205,7 @@ class FinetuneTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.client.detect_rollouts(FakeEncodedImage(), "vehicles")
 
-    def test_rlgroup_with_rewards_validates_length(self):
+    def test_rlgroup_rewards_assignment_validates_length(self):
         rl_group = RLGroup(
             skill="query",
             question="hi",
@@ -213,7 +213,7 @@ class FinetuneTests(unittest.TestCase):
         )
 
         with self.assertRaises(ValueError):
-            rl_group.with_rewards([1.0, 0.0])
+            rl_group.rewards = [1.0, 0.0]
 
     def test_train_step_builds_mixed_rl_and_sft_payload(self):
         raw_rollout = _raw_rollout("query", {"answer": "A sign"})
@@ -293,7 +293,8 @@ class FinetuneTests(unittest.TestCase):
                 image=self.image,
                 question="What is happening?",
             )
-            result = self.client.train_step([rl_group.with_rewards([1.0])])
+            rl_group.rewards = [1.0]
+            result = self.client.train_step([rl_group])
 
         self.assertEqual(result["step"], 4)
         self.assertEqual(rl_group.rollouts, [{"answer": "People are socializing."}])
@@ -309,6 +310,20 @@ class FinetuneTests(unittest.TestCase):
             rollouts=[{"answer": "A photo"}],
             rewards=[1.0],
         )
+
+        with self.assertRaises(ValueError):
+            self.client.train_step([rl_group])
+
+    def test_train_step_rejects_mutated_rewards_length(self):
+        rl_group = RLGroup(
+            skill="query",
+            question="What is this?",
+            rollouts=[{"answer": "A photo"}],
+            rewards=[1.0],
+            _request_payload={"skill": "query", "question": "What is this?"},
+            _rollouts_payload=[_raw_rollout("query", {"answer": "A photo"})],
+        )
+        rl_group.rewards.append(0.0)
 
         with self.assertRaises(ValueError):
             self.client.train_step([rl_group])
@@ -439,7 +454,6 @@ class FinetuneTests(unittest.TestCase):
                 skill=group.skill,
                 question=group.question,
                 rollouts=[],
-                rewards=[1.0],
                 _request_payload={"skill": group.skill},
                 _rollouts_payload=[],
             )
