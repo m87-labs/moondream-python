@@ -234,6 +234,23 @@ CheckpointListOutput = TypedDict(
     total=False,
 )
 
+OkResponse = TypedDict(
+    "OkResponse",
+    {
+        "ok": bool,
+    },
+    total=False,
+)
+
+SaveCheckpointOutput = TypedDict(
+    "SaveCheckpointOutput",
+    {
+        "ok": bool,
+        "checkpoint": CheckpointInfo,
+    },
+    total=False,
+)
+
 @dataclass(frozen=True)
 class RolloutRequest:
     skill: Skill

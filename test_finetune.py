@@ -586,6 +586,54 @@ class FinetuneTests(unittest.TestCase):
             query={"limit": 0, "cursor": None},
         )
 
+    def test_save_checkpoint_returns_raw_response(self):
+        response = {
+            "ok": True,
+            "checkpoint": {
+                "checkpoint_id": "ckpt_123",
+                "finetune_id": "ft_123",
+                "step": 7,
+            },
+        }
+
+        with mock.patch.object(
+            self.client,
+            "_request_json",
+            return_value=response,
+        ) as mocked:
+            result = self.client.save_checkpoint()
+
+        self.assertEqual(result, response)
+        mocked.assert_called_once_with(
+            "POST",
+            "/finetunes/ft_123/checkpoints/save",
+        )
+
+    def test_delete_returns_raw_response(self):
+        with mock.patch.object(
+            self.client,
+            "_request_json",
+            return_value={"ok": True},
+        ) as mocked:
+            result = self.client.delete()
+
+        self.assertEqual(result, {"ok": True})
+        mocked.assert_called_once_with("DELETE", "/finetunes/ft_123")
+
+    def test_delete_checkpoint_returns_raw_response(self):
+        with mock.patch.object(
+            self.client,
+            "_request_json",
+            return_value={"ok": True},
+        ) as mocked:
+            result = self.client.delete_checkpoint(7)
+
+        self.assertEqual(result, {"ok": True})
+        mocked.assert_called_once_with(
+            "DELETE",
+            "/finetunes/ft_123/checkpoints/7",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -16,14 +16,15 @@ from PIL import Image
 
 from .types import (
     Base64EncodedImage,
-    CheckpointInfo,
     CheckpointListOutput,
     FinetuneInfo,
     EncodedImage,
     MetricsLogOutput,
+    OkResponse,
     RLGroup,
     RolloutRequest,
     RolloutsResponse,
+    SaveCheckpointOutput,
     SFTTarget,
     Skill,
     SkillRequest,
@@ -331,8 +332,8 @@ class Finetune:
             payload=self._rollouts_payload(request),
         )
 
-    def delete(self) -> None:
-        self._request_json("DELETE", f"/finetunes/{self.finetune_id}")
+    def delete(self) -> OkResponse:
+        return self._request_json("DELETE", f"/finetunes/{self.finetune_id}")
 
     async def _rollouts_async(self, request: RolloutRequest) -> RolloutsResponse:
         return await self._request_json_async(
@@ -479,14 +480,13 @@ class Finetune:
             query={"limit": limit, "cursor": cursor},
         )
 
-    def save_checkpoint(self) -> CheckpointInfo:
-        result = self._request_json(
+    def save_checkpoint(self) -> SaveCheckpointOutput:
+        return self._request_json(
             "POST", f"/finetunes/{self.finetune_id}/checkpoints/save"
         )
-        return result["checkpoint"]
 
-    def delete_checkpoint(self, step: int) -> None:
-        self._request_json(
+    def delete_checkpoint(self, step: int) -> OkResponse:
+        return self._request_json(
             "DELETE", f"/finetunes/{self.finetune_id}/checkpoints/{step}"
         )
 

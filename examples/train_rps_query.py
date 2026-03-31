@@ -177,7 +177,8 @@ def main():
                 flush=True,
             )
 
-    checkpoint = ft.save_checkpoint()
+    save_result = ft.save_checkpoint()
+    checkpoint = save_result["checkpoint"]
     model_id = ft.model(checkpoint["step"])
 
     print(f"Saved checkpoint: {checkpoint['checkpoint_id']}", flush=True)
