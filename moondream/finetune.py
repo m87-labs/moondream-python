@@ -414,7 +414,7 @@ class Finetune:
             object=group.object,
             spatial_refs=group.spatial_refs,
             reasoning=group.reasoning,
-            settings=group.settings,
+            settings=None if isinstance(group, SFTGroup) else group.settings,
         )
 
     def _rl_group_from_result(

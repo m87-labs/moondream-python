@@ -244,7 +244,6 @@ class FinetuneTests(unittest.TestCase):
             question="What country is this?",
             image=self.image,
             reasoning=False,
-            settings={"temperature": 0.0, "top_p": 1.0, "max_tokens": 16},
             targets=[{"answer": "United States"}],
         )
 
@@ -263,6 +262,7 @@ class FinetuneTests(unittest.TestCase):
         self.assertEqual(payload["groups"][1]["mode"], "sft")
         self.assertEqual(payload["groups"][1]["targets"], [{"answer": "United States"}])
         self.assertIn("image_url", payload["groups"][1]["request"])
+        self.assertNotIn("settings", payload["groups"][1]["request"])
 
     def test_train_step_hides_internal_metrics(self):
         rl_group = RLGroup(

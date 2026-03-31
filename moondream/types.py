@@ -309,7 +309,6 @@ class SFTGroup:
     object: Optional[str] = None
     spatial_refs: Optional[List[SpatialRef]] = None
     reasoning: bool = False
-    settings: Optional[SamplingSettings] = None
 
     @classmethod
     def query(
@@ -318,7 +317,6 @@ class SFTGroup:
         targets: Sequence[QueryTarget],
         image: Optional[Union[Image.Image, EncodedImage]] = None,
         *,
-        settings: Optional[SamplingSettings] = None,
         reasoning: bool = False,
         spatial_refs: Optional[List[SpatialRef]] = None,
     ) -> "SFTGroup":
@@ -329,7 +327,6 @@ class SFTGroup:
             question=question,
             spatial_refs=spatial_refs,
             reasoning=reasoning,
-            settings=settings,
         )
 
     @classmethod
@@ -338,15 +335,12 @@ class SFTGroup:
         image: Union[Image.Image, EncodedImage],
         object: str,
         targets: Sequence[PointTarget],
-        *,
-        settings: Optional[SamplingSettings] = None,
     ) -> "SFTGroup":
         return cls(
             skill="point",
             targets=list(targets),
             image=image,
             object=object,
-            settings=settings,
         )
 
     @classmethod
@@ -355,15 +349,12 @@ class SFTGroup:
         image: Union[Image.Image, EncodedImage],
         object: str,
         targets: Sequence[DetectTarget],
-        *,
-        settings: Optional[SamplingSettings] = None,
     ) -> "SFTGroup":
         return cls(
             skill="detect",
             targets=list(targets),
             image=image,
             object=object,
-            settings=settings,
         )
 
 
