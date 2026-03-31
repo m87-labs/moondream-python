@@ -5,10 +5,9 @@ Dataset: moondream/classification (subset real-rps)
 Requires:
     pip install datasets pillow
 
-Set `MOONDREAM_API_KEY` and `HF_TOKEN`, or pass them via flags.
+Set MOONDREAM_API_KEY and HF_TOKEN environment variables.
 """
 
-import argparse
 import os
 import sys
 import time
@@ -23,8 +22,9 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import moondream as md
-from moondream.finetune import DEFAULT_TUNING_ENDPOINT
 
+API_KEY = os.environ["MOONDREAM_API_KEY"]
+HF_TOKEN = os.environ["HF_TOKEN"]
 
 DATASET_NAME = "moondream/classification"
 DATASET_SUBSET = "real-rps"
@@ -32,6 +32,13 @@ QUESTION = "Is this rock, paper, or scissors? Respond with rock, paper, or sciss
 TRAIN_SETTINGS = {"temperature": 1.0, "top_p": 1.0, "max_tokens": 4}
 EVAL_SETTINGS = {"temperature": 0.0, "top_p": 1.0, "max_tokens": 4}
 VALID_LABELS = ("rock", "paper", "scissors")
+
+STEPS = 20
+NUM_ROLLOUTS = 4
+EVAL_EVERY = 5
+EVAL_SAMPLES = 16
+LR = 0.001
+RANK = 8
 
 
 def normalize_label(text: str) -> str:
@@ -48,13 +55,13 @@ def reward(answer: str, expected: str) -> float:
     return 1.0 if normalize_label(answer) == normalize_label(expected) else 0.0
 
 
-def iter_examples(target_split: str, hf_token: str):
+def iter_examples(target_split: str):
     dataset = load_dataset(
         DATASET_NAME,
         DATASET_SUBSET,
         split="train",
         streaming=True,
-        token=hf_token,
+        token=HF_TOKEN,
     )
 
     while True:
@@ -78,13 +85,11 @@ def evaluate(ft, examples: list[dict]) -> float:
     correct = 0
     for example in examples:
         response = ft.rollouts(
-            md.types.RolloutRequest(
-                skill="query",
-                image=example["image"],
-                question=QUESTION,
-                num_rollouts=1,
-                settings=EVAL_SETTINGS,
-            )
+            "query",
+            image=example["image"],
+            question=QUESTION,
+            num_rollouts=1,
+            settings=EVAL_SETTINGS,
         )
         answer = response["rollouts"][0]["output"].get("answer", "")
         correct += int(reward(answer, example["answer"]))
@@ -92,53 +97,30 @@ def evaluate(ft, examples: list[dict]) -> float:
     return correct / len(examples)
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--api-key", default=os.getenv("MOONDREAM_API_KEY"))
-    parser.add_argument("--hf-token", default=os.getenv("HF_TOKEN"))
-    parser.add_argument("--endpoint", default=DEFAULT_TUNING_ENDPOINT)
-    parser.add_argument("--rank", type=int, default=8)
-    parser.add_argument("--steps", type=int, default=20)
-    parser.add_argument("--num-rollouts", type=int, default=4)
-    parser.add_argument("--eval-every", type=int, default=5)
-    parser.add_argument("--eval-samples", type=int, default=16)
-    parser.add_argument("--lr", type=float, default=0.001)
-    return parser.parse_args()
+def make_requests(examples):
+    for example in examples:
+        yield example, {
+            "skill": "query",
+            "image": example["image"],
+            "question": QUESTION,
+            "num_rollouts": NUM_ROLLOUTS,
+            "settings": TRAIN_SETTINGS,
+        }
 
 
 def main():
-    args = parse_args()
-    assert args.api_key, "Pass --api-key or set MOONDREAM_API_KEY"
-    assert args.hf_token, "Pass --hf-token or set HF_TOKEN"
+    train_examples = iter_examples("train")
+    eval_examples = list(islice(iter_examples("valid"), EVAL_SAMPLES))
+    assert eval_examples, "Could not load any eval examples"
 
-    train_examples = iter_examples("train", args.hf_token)
-    eval_examples = list(islice(iter_examples("valid", args.hf_token), args.eval_samples))
-    if not eval_examples:
-        raise SystemExit("Could not load any eval examples")
-
-    finetune_name = f"rps-query-{int(time.time())}"
     ft = md.ft(
-        api_key=args.api_key,
-        name=finetune_name,
-        rank=args.rank,
-        endpoint=args.endpoint,
+        api_key=API_KEY,
+        name=f"rps-query-{int(time.time())}",
+        rank=RANK,
     )
-
     print(f"Created finetune: {ft.finetune_id} ({ft.name})", flush=True)
 
-    def make_requests(examples, num_rollouts, settings):
-        for example in examples:
-            yield example, md.types.RolloutRequest(
-                skill="query",
-                image=example["image"],
-                question=QUESTION,
-                num_rollouts=num_rollouts,
-                settings=settings,
-            )
-
-    requests = make_requests(train_examples, args.num_rollouts, TRAIN_SETTINGS)
-
-    for example, response in ft.rollout_stream(islice(requests, args.steps)):
+    for example, response in ft.rollout_stream(islice(make_requests(train_examples), STEPS)):
         rewards = [
             reward(rollout["output"].get("answer", ""), example["answer"])
             for rollout in response["rollouts"]
@@ -148,14 +130,14 @@ def main():
             "request": response["request"],
             "rollouts": response["rollouts"],
             "rewards": rewards,
-        }], lr=args.lr)
+        }], lr=LR)
         reward_mean = sum(rewards) / len(rewards)
         print(
             f"step={step['step']} label={example['answer']} reward_mean={reward_mean:.3f}",
             flush=True,
         )
 
-        if step["step"] % args.eval_every == 0 or step["step"] == args.steps:
+        if step["step"] % EVAL_EVERY == 0 or step["step"] == STEPS:
             eval_accuracy = evaluate(ft, eval_examples)
             metrics = ft.log_metrics(
                 step=step["step"],

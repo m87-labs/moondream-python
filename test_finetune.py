@@ -10,7 +10,7 @@ import moondream as md
 from PIL import Image
 
 from moondream.finetune import Finetune, FinetuneAPIError, ft
-from moondream.types import EncodedImage, RLGroup, RolloutRequest, SFTGroup
+from moondream.types import EncodedImage, RLGroup, SFTGroup
 
 
 class _FakeResponse:
@@ -82,10 +82,8 @@ class FinetuneTests(unittest.TestCase):
     def test_package_exposes_helper_types_under_md_types(self):
         self.assertTrue(hasattr(md, "ft"))
         self.assertTrue(hasattr(md, "types"))
-        self.assertIs(md.types.RolloutRequest, RolloutRequest)
         self.assertIs(md.types.RLGroup, RLGroup)
         self.assertIs(md.types.SFTGroup, SFTGroup)
-        self.assertFalse(hasattr(md, "RolloutRequest"))
         self.assertFalse(hasattr(md, "RLGroup"))
         self.assertFalse(hasattr(md, "SFTGroup"))
 
@@ -144,17 +142,15 @@ class FinetuneTests(unittest.TestCase):
             "rollouts": [_raw_rollout("query", {"answer": "People are socializing."})],
         }
 
-        request = RolloutRequest(
-            skill="query",
-            image=self.image,
-            question="What is happening?",
-            num_rollouts=2,
-            reasoning=True,
-            settings={"temperature": 1.0, "top_p": 1.0, "max_tokens": 8},
-        )
-
         with mock.patch.object(self.client, "_request_json", return_value=response) as mocked:
-            result = self.client.rollouts(request)
+            result = self.client.rollouts(
+                "query",
+                image=self.image,
+                question="What is happening?",
+                num_rollouts=2,
+                reasoning=True,
+                settings={"temperature": 1.0, "top_p": 1.0, "max_tokens": 8},
+            )
 
         self.assertEqual(result, response)
         payload = mocked.call_args.kwargs["payload"]
@@ -166,37 +162,33 @@ class FinetuneTests(unittest.TestCase):
         self.assertTrue(payload["request"]["reasoning"])
 
     def test_rollouts_pass_settings_through(self):
-        request = RolloutRequest(
-            skill="query",
-            question="What is here?",
-            image=self.image,
-            settings={"max_objects": 2},
-        )
-
         with mock.patch.object(
             self.client,
             "_request_json",
             return_value={"request": {"skill": "query"}, "rollouts": []},
         ) as mocked:
-            self.client.rollouts(request)
+            self.client.rollouts(
+                "query",
+                question="What is here?",
+                image=self.image,
+                settings={"max_objects": 2},
+            )
 
         payload = mocked.call_args.kwargs["payload"]
         self.assertEqual(payload["request"]["settings"]["max_objects"], 2)
 
     def test_rollouts_pass_ground_truth_through(self):
-        request = RolloutRequest(
-            skill="detect",
-            image=self.image,
-            object="vehicles",
-            ground_truth={"boxes": []},
-        )
-
         with mock.patch.object(
             self.client,
             "_request_json",
             return_value={"request": {"skill": "detect"}, "rollouts": []},
         ) as mocked:
-            self.client.rollouts(request)
+            self.client.rollouts(
+                "detect",
+                image=self.image,
+                object="vehicles",
+                ground_truth={"boxes": []},
+            )
 
         payload = mocked.call_args.kwargs["payload"]
         self.assertEqual(payload["ground_truth"], {"boxes": []})
@@ -206,24 +198,23 @@ class FinetuneTests(unittest.TestCase):
             pass
 
         with self.assertRaises(ValueError):
-            self.client.rollouts(
-                RolloutRequest(skill="detect", image=FakeEncodedImage(), object="vehicles")
-            )
+            self.client.rollouts("detect", image=FakeEncodedImage(), object="vehicles")
 
     def test_rollout_stream_yields_context_response_pairs(self):
-        def fake_rollouts(request):
+        def fake_rollouts(skill, **kwargs):
+            question = kwargs.get("question", "")
             return {
                 "request": {
-                    "skill": request.skill,
-                    "question": request.question,
+                    "skill": skill,
+                    "question": question,
                 },
-                "rollouts": [_raw_rollout(request.skill, {"answer": request.question})],
+                "rollouts": [_raw_rollout(skill, {"answer": question})],
                 "rewards": [0.5],
             }
 
         items = [
-            ({"label": "rock"}, RolloutRequest(skill="query", question="q0")),
-            ({"label": "paper"}, RolloutRequest(skill="query", question="q1")),
+            ({"label": "rock"}, {"skill": "query", "question": "q0"}),
+            ({"label": "paper"}, {"skill": "query", "question": "q1"}),
         ]
 
         with mock.patch.object(self.client, "rollouts", side_effect=fake_rollouts):
@@ -378,11 +369,9 @@ class FinetuneTests(unittest.TestCase):
             side_effect=[rollout_response, {"step": 4, "applied": True}],
         ) as mocked:
             response = self.client.rollouts(
-                RolloutRequest(
-                    skill="query",
-                    image=self.image,
-                    question="What is happening?",
-                )
+                "query",
+                image=self.image,
+                question="What is happening?",
             )
             group: RLGroup = {
                 "mode": "rl",
@@ -490,7 +479,7 @@ class FinetuneTests(unittest.TestCase):
         active = {"count": 0, "max": 0}
         lock = threading.Lock()
 
-        def fake_rollouts(request):
+        def fake_rollouts(skill, **kwargs):
             with lock:
                 active["count"] += 1
                 active["max"] = max(active["max"], active["count"])
@@ -498,11 +487,11 @@ class FinetuneTests(unittest.TestCase):
             with lock:
                 active["count"] -= 1
             return {
-                "request": {"skill": request.skill, "question": request.question},
+                "request": {"skill": skill, "question": kwargs.get("question", "")},
                 "rollouts": [],
             }
 
-        items = [(i, RolloutRequest(skill="query", question=f"q{i}")) for i in range(5)]
+        items = [(i, {"skill": "query", "question": f"q{i}"}) for i in range(5)]
 
         with mock.patch.object(self.client, "rollouts", side_effect=fake_rollouts):
             results = list(self.client.rollout_stream(items, max_concurrency=2))
@@ -513,17 +502,17 @@ class FinetuneTests(unittest.TestCase):
     def test_rollout_stream_stops_on_error(self):
         call_count = [0]
 
-        def fake_rollouts(request):
+        def fake_rollouts(skill, **kwargs):
             call_count[0] += 1
             if call_count[0] == 2:
                 raise FinetuneAPIError("boom")
             time.sleep(0.02)
             return {
-                "request": {"skill": request.skill, "question": request.question},
+                "request": {"skill": skill, "question": kwargs.get("question", "")},
                 "rollouts": [],
             }
 
-        items = [(i, RolloutRequest(skill="query", question=f"q{i}")) for i in range(10)]
+        items = [(i, {"skill": "query", "question": f"q{i}"}) for i in range(10)]
 
         with mock.patch.object(self.client, "rollouts", side_effect=fake_rollouts):
             with self.assertRaises(FinetuneAPIError):
@@ -535,18 +524,19 @@ class FinetuneTests(unittest.TestCase):
         started = []
         lock = threading.Lock()
 
-        def fake_rollouts(request):
+        def fake_rollouts(skill, **kwargs):
+            question = kwargs.get("question", "")
             with lock:
-                started.append(request.question)
-            if request.question == "q1":
+                started.append(question)
+            if question == "q1":
                 raise FinetuneAPIError("boom")
             time.sleep(0.1)
             return {
-                "request": {"skill": request.skill, "question": request.question},
+                "request": {"skill": skill, "question": question},
                 "rollouts": [],
             }
 
-        items = [(i, RolloutRequest(skill="query", question=f"q{i}")) for i in range(20)]
+        items = [(i, {"skill": "query", "question": f"q{i}"}) for i in range(20)]
 
         with mock.patch.object(self.client, "rollouts", side_effect=fake_rollouts):
             with self.assertRaises(FinetuneAPIError):
@@ -559,13 +549,13 @@ class FinetuneTests(unittest.TestCase):
 
     def test_rollout_stream_surfaces_iterator_error(self):
         def bad_iterator():
-            yield (None, RolloutRequest(skill="query", question="q0"))
+            yield (None, {"skill": "query", "question": "q0"})
             raise RuntimeError("dataset failed")
 
-        def fake_rollouts(request):
+        def fake_rollouts(skill, **kwargs):
             time.sleep(0.02)
             return {
-                "request": {"skill": request.skill, "question": request.question},
+                "request": {"skill": skill, "question": kwargs.get("question", "")},
                 "rollouts": [],
             }
 

@@ -243,17 +243,21 @@ SaveCheckpointOutput = TypedDict(
     total=False,
 )
 
-@dataclass(frozen=True)
-class RolloutRequest:
-    skill: Skill
-    num_rollouts: int = 1
-    image: Optional[Union[Image.Image, EncodedImage]] = None
-    question: Optional[str] = None
-    object: Optional[str] = None
-    spatial_refs: Optional[List[SpatialRef]] = None
-    reasoning: bool = False
-    settings: Optional[SamplingSettings] = None
-    ground_truth: Optional[FinetuneGroundTruth] = None
+RolloutRequest = TypedDict(
+    "RolloutRequest",
+    {
+        "skill": Skill,
+        "num_rollouts": int,
+        "image": Optional[Union[Image.Image, EncodedImage]],
+        "question": Optional[str],
+        "object": Optional[str],
+        "spatial_refs": Optional[List[SpatialRef]],
+        "reasoning": bool,
+        "settings": Optional[SamplingSettings],
+        "ground_truth": Optional[FinetuneGroundTruth],
+    },
+    total=False,
+)
 
 
 RLGroup = TypedDict(

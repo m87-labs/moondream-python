@@ -17,12 +17,14 @@ from PIL import Image
 from .types import (
     Base64EncodedImage,
     CheckpointListOutput,
+    FinetuneGroundTruth,
     FinetuneInfo,
     EncodedImage,
     MetricsLogOutput,
     RLGroup,
     RolloutRequest,
     RolloutsResponse,
+    SamplingSettings,
     SaveCheckpointOutput,
     SFTTarget,
     Skill,
@@ -248,27 +250,57 @@ class Finetune:
     def _rollouts_payload(self, request: RolloutRequest) -> dict:
         payload = {
             "finetune_id": self.finetune_id,
-            "num_rollouts": request.num_rollouts,
+            "num_rollouts": request.get("num_rollouts", 1),
             "request": self._request_payload(
-                skill=request.skill,
-                image=request.image,
-                question=request.question,
-                object=request.object,
-                spatial_refs=request.spatial_refs,
-                reasoning=request.reasoning,
-                settings=request.settings,
+                skill=request["skill"],
+                image=request.get("image"),
+                question=request.get("question"),
+                object=request.get("object"),
+                spatial_refs=request.get("spatial_refs"),
+                reasoning=request.get("reasoning", False),
+                settings=request.get("settings"),
             ),
         }
-        if request.ground_truth is not None:
-            payload["ground_truth"] = dict(request.ground_truth)
+        ground_truth = request.get("ground_truth")
+        if ground_truth is not None:
+            payload["ground_truth"] = dict(ground_truth)
         return payload
 
-    def rollouts(self, request: RolloutRequest) -> RolloutsResponse:
+    def rollouts(
+        self,
+        skill: Skill,
+        *,
+        image: Optional[Union[Image.Image, EncodedImage]] = None,
+        question: Optional[str] = None,
+        object: Optional[str] = None,
+        num_rollouts: int = 1,
+        settings: Optional[SamplingSettings] = None,
+        reasoning: bool = False,
+        spatial_refs: Optional[Sequence[SpatialRef]] = None,
+        ground_truth: Optional[FinetuneGroundTruth] = None,
+    ) -> RolloutsResponse:
         """Generate rollouts for a single request.
 
         Returns the raw `/rollouts` response with `request`, `rollouts`, and
         optional `rewards`.
         """
+        request: RolloutRequest = {"skill": skill}
+        if image is not None:
+            request["image"] = image
+        if question is not None:
+            request["question"] = question
+        if object is not None:
+            request["object"] = object
+        if num_rollouts != 1:
+            request["num_rollouts"] = num_rollouts
+        if settings is not None:
+            request["settings"] = settings
+        if reasoning:
+            request["reasoning"] = reasoning
+        if spatial_refs is not None:
+            request["spatial_refs"] = list(spatial_refs)
+        if ground_truth is not None:
+            request["ground_truth"] = ground_truth
         return self._request_json(
             "POST",
             "/rollouts",
@@ -334,7 +366,7 @@ class Finetune:
                         return
 
                     try:
-                        response = self.rollouts(request)
+                        response = self.rollouts(**request)
                     except Exception as exc:
                         stop.set()
                         while True:
