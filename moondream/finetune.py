@@ -25,7 +25,6 @@ from .types import (
     RolloutsResponse,
     SamplingSettings,
     SaveCheckpointOutput,
-    SFTTarget,
     Skill,
     SkillRequest,
     SFTGroup,
@@ -133,32 +132,6 @@ class Finetune:
                 time.sleep(random.uniform(0.0, max_delay))
         raise last_exc  # unreachable, but keeps the type checker happy
 
-    def _request_payload(
-        self,
-        *,
-        skill: Skill,
-        image: Optional[Union[Image.Image, EncodedImage]] = None,
-        question: Optional[str] = None,
-        object: Optional[str] = None,
-        spatial_refs: Optional[Sequence[SpatialRef]] = None,
-        reasoning: bool = False,
-        settings: Optional[Mapping[str, object]] = None,
-    ) -> SkillRequest:
-        payload: SkillRequest = {"skill": skill}
-        if image is not None:
-            payload["image_url"] = _encode_image(image).image_url
-        if question is not None:
-            payload["question"] = question
-        if object is not None:
-            payload["object"] = object
-        if spatial_refs is not None:
-            payload["spatial_refs"] = list(spatial_refs)
-        if reasoning:
-            payload["reasoning"] = True
-        if settings is not None:
-            payload["settings"] = dict(settings)
-        return payload
-
     def rollouts(
         self,
         skill: Skill,
@@ -177,18 +150,23 @@ class Finetune:
         Returns the raw `/rollouts` response with `request`, `rollouts`, and
         optional `rewards`.
         """
+        request: SkillRequest = {"skill": skill}
+        if image is not None:
+            request["image_url"] = _encode_image(image).image_url
+        if question is not None:
+            request["question"] = question
+        if object is not None:
+            request["object"] = object
+        if spatial_refs is not None:
+            request["spatial_refs"] = list(spatial_refs)
+        if reasoning:
+            request["reasoning"] = True
+        if settings is not None:
+            request["settings"] = dict(settings)
         payload: dict = {
             "finetune_id": self.finetune_id,
             "num_rollouts": num_rollouts,
-            "request": self._request_payload(
-                skill=skill,
-                image=image,
-                question=question,
-                object=object,
-                spatial_refs=spatial_refs,
-                reasoning=reasoning,
-                settings=settings,
-            ),
+            "request": request,
         }
         if ground_truth is not None:
             payload["ground_truth"] = dict(ground_truth)
@@ -299,38 +277,23 @@ class Finetune:
                         pass
                     t.join(timeout=0.1)
 
-    def build_sft_group(
-        self,
-        *,
-        skill: Skill,
-        target: SFTTarget,
-        image: Optional[Union[Image.Image, EncodedImage]] = None,
-        question: Optional[str] = None,
-        object: Optional[str] = None,
-        reasoning: bool = False,
-        spatial_refs: Optional[Sequence[SpatialRef]] = None,
-    ) -> SFTGroup:
-        return {
-            "mode": "sft",
-            "request": self._request_payload(
-                skill=skill,
-                image=image,
-                question=question,
-                object=object,
-                spatial_refs=spatial_refs,
-                reasoning=reasoning,
-            ),
-            "target": target,
-        }
-
     def train_step(
         self,
         groups: Sequence[Union[RLGroup, SFTGroup]],
         lr: float = 0.002,
     ) -> TrainStepOutput:
+        encoded_groups = []
+        for group in groups:
+            group = dict(group)
+            request = group.get("request")
+            if isinstance(request, dict) and "image" in request:
+                request = dict(request)
+                request["image_url"] = _encode_image(request.pop("image")).image_url
+                group["request"] = request
+            encoded_groups.append(group)
         payload = {
             "finetune_id": self.finetune_id,
-            "groups": list(groups),
+            "groups": encoded_groups,
             "lr": lr,
         }
         return self._request_json("POST", "/train_step", payload=payload)
