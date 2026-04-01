@@ -63,9 +63,9 @@ def _is_retryable(exc: Exception) -> bool:
     return isinstance(exc, (TimeoutError, socket.timeout))
 
 
-_MAX_RETRIES = 5
+_MAX_RETRIES = 10
 _RETRY_BASE_DELAY = 0.5
-_RETRY_MAX_DELAY = 8.0
+_RETRY_MAX_DELAY = 30.0
 _REQUEST_TIMEOUT = 60.0
 
 
