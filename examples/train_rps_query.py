@@ -46,26 +46,17 @@ def iter_examples(target_split: str):
     ).filter(lambda row: row.get("split", "").lower() == target_split)
 
     while True:
-        for row in dataset:
-            yield {"image": row["image"], "answer": row["class"]}
+        yield from dataset
 
 
-def evaluate(ft, examples: list[dict]) -> float:
-    if not examples:
-        return 0.0
-
-    correct = 0
-    for example in examples:
-        response = ft.rollouts(
-            "query",
-            image=example["image"],
-            question=QUESTION,
-            num_rollouts=1,
+def evaluate(ft, examples):
+    correct = sum(
+        ft.rollouts(
+            "query", image=ex["image"], question=QUESTION,
             settings={"temperature": 0.0, "max_tokens": 4},
-        )
-        answer = response["rollouts"][0]["output"].get("answer", "")
-        correct += int(reward(answer, example["answer"]))
-
+        )["rollouts"][0]["output"].get("answer", "").strip().lower() == ex["class"]
+        for ex in examples
+    )
     return correct / len(examples)
 
 
@@ -94,7 +85,7 @@ def main():
 
     for example, response in ft.rollout_stream(islice(requests, STEPS)):
         rewards = [
-            reward(rollout["output"].get("answer", ""), example["answer"])
+            reward(rollout["output"].get("answer", ""), example["class"])
             for rollout in response["rollouts"]
         ]
         step = ft.train_step([{
@@ -105,7 +96,7 @@ def main():
         }], lr=LR)
         reward_mean = sum(rewards) / len(rewards)
         print(
-            f"step={step['step']} label={example['answer']} reward_mean={reward_mean:.3f}",
+            f"step={step['step']} label={example['class']} reward_mean={reward_mean:.3f}",
             flush=True,
         )
 
