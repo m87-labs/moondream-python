@@ -11,7 +11,7 @@ Set MOONDREAM_API_KEY and HF_TOKEN environment variables.
 import os
 import sys
 import time
-from itertools import islice
+from itertools import cycle
 from pathlib import Path
 
 from datasets import load_dataset
@@ -28,42 +28,31 @@ QUESTION = "Is this rock, paper, or scissors? Respond with rock, paper, or sciss
 STEPS = 20
 NUM_ROLLOUTS = 4
 EVAL_EVERY = 5
-EVAL_SAMPLES = 16
 LR = 0.001
 RANK = 8
 
 
-def reward(answer: str, expected: str) -> float:
-    return 1.0 if answer.strip().lower() == expected else 0.0
-
-
-def iter_examples(target_split: str):
-    dataset = load_dataset(
-        "moondream/classification",
-        "real-rps",
-        split="train",
-        streaming=True,
-    ).filter(lambda row: row.get("split", "").lower() == target_split)
-
-    while True:
-        yield from dataset
+def load_examples(target_split):
+    return load_dataset(
+        "moondream/classification", "real-rps", split="train"
+    ).filter(lambda row: row["split"] == target_split)
 
 
 def evaluate(ft, examples):
-    correct = sum(
-        ft.rollouts(
+    correct, total = 0, 0
+    for ex in examples:
+        answer = ft.rollouts(
             "query", image=ex["image"], question=QUESTION,
             settings={"temperature": 0.0, "max_tokens": 4},
-        )["rollouts"][0]["output"].get("answer", "").strip().lower() == ex["class"]
-        for ex in examples
-    )
-    return correct / len(examples)
+        )["rollouts"][0]["output"]["answer"]
+        correct += answer.strip().lower() == ex["class"]
+        total += 1
+    return correct / total
 
 
 def main():
-    train_examples = iter_examples("train")
-    eval_examples = list(islice(iter_examples("valid"), EVAL_SAMPLES))
-    assert eval_examples, "Could not load any eval examples"
+    train_examples = load_examples("train")
+    eval_examples = load_examples("valid")
 
     ft = md.ft(
         api_key=os.environ["MOONDREAM_API_KEY"],
@@ -80,13 +69,13 @@ def main():
             "num_rollouts": NUM_ROLLOUTS,
             "settings": {"temperature": 1.0, "max_tokens": 4},
         })
-        for example in train_examples
+        for example in cycle(train_examples)
     )
 
-    for example, response in ft.rollout_stream(islice(requests, STEPS)):
+    for _, (example, response) in zip(range(STEPS), ft.rollout_stream(requests)):
         rewards = [
-            reward(rollout["output"].get("answer", ""), example["class"])
-            for rollout in response["rollouts"]
+            float(r["output"]["answer"].strip().lower() == example["class"])
+            for r in response["rollouts"]
         ]
         step = ft.train_step([{
             "mode": "rl",
