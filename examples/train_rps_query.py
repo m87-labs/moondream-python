@@ -23,8 +23,6 @@ if str(REPO_ROOT) not in sys.path:
 
 import moondream as md
 
-API_KEY = os.environ["MOONDREAM_API_KEY"]
-
 QUESTION = "Is this rock, paper, or scissors? Respond with rock, paper, or scissors only."
 
 STEPS = 20
@@ -71,30 +69,30 @@ def evaluate(ft, examples: list[dict]) -> float:
     return correct / len(examples)
 
 
-def make_requests(examples):
-    for example in examples:
-        yield example, {
-            "skill": "query",
-            "image": example["image"],
-            "question": QUESTION,
-            "num_rollouts": NUM_ROLLOUTS,
-            "settings": {"temperature": 1.0, "max_tokens": 4},
-        }
-
-
 def main():
     train_examples = iter_examples("train")
     eval_examples = list(islice(iter_examples("valid"), EVAL_SAMPLES))
     assert eval_examples, "Could not load any eval examples"
 
     ft = md.ft(
-        api_key=API_KEY,
+        api_key=os.environ["MOONDREAM_API_KEY"],
         name=f"rps-query-{int(time.time())}",
         rank=RANK,
     )
     print(f"Created finetune: {ft.finetune_id} ({ft.name})", flush=True)
 
-    for example, response in ft.rollout_stream(islice(make_requests(train_examples), STEPS)):
+    requests = (
+        (example, {
+            "skill": "query",
+            "image": example["image"],
+            "question": QUESTION,
+            "num_rollouts": NUM_ROLLOUTS,
+            "settings": {"temperature": 1.0, "max_tokens": 4},
+        })
+        for example in train_examples
+    )
+
+    for example, response in ft.rollout_stream(islice(requests, STEPS)):
         rewards = [
             reward(rollout["output"].get("answer", ""), example["answer"])
             for rollout in response["rollouts"]
