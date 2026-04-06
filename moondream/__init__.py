@@ -1,7 +1,9 @@
 from importlib.metadata import version as _pkg_version
 from typing import Optional
 
+from . import types
 from .cloud_vl import CloudVL
+from .finetune import ft
 
 __version__ = _pkg_version("moondream")
 
@@ -34,4 +36,4 @@ def vl(
     return CloudVL(api_key=api_key, endpoint=endpoint, model=model, **kwargs)
 
 
-__all__ = ["vl", "__version__"]
+__all__ = ["ft", "vl", "__version__"]
