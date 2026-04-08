@@ -280,7 +280,7 @@ class Finetune:
     def train_step(
         self,
         groups: Sequence[Union[RLGroup, SFTGroup]],
-        lr: float = 0.002,
+        lr: float = 2e-4,
     ) -> TrainStepOutput:
         encoded_groups = []
         for group in groups:

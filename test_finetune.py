@@ -409,7 +409,7 @@ class FinetuneTests(unittest.TestCase):
             payload={
                 "finetune_id": "ft_123",
                 "groups": [group],
-                "lr": 0.002,
+                "lr": 2e-4,
             },
         )
 

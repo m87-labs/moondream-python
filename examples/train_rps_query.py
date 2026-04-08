@@ -28,7 +28,7 @@ QUESTION = "Is this rock, paper, or scissors? Respond with rock, paper, or sciss
 STEPS = 20
 NUM_ROLLOUTS = 4
 EVAL_EVERY = 5
-LR = 0.001
+LR = 2e-4
 RANK = 8
 
 
