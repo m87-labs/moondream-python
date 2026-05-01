@@ -27,7 +27,7 @@ pip install moondream
 Choose how you want to run Moondream:
 
 1. **Moondream Cloud** — Get an API key from the [cloud console](https://moondream.ai/c/cloud/api-keys)
-2. **Moondream Photon** — High-performance local inference engine on NVIDIA GPUs (Linux / Windows) or Apple Silicon Macs (macOS 13+, Python 3.12). Requires an API key.
+2. **Moondream Photon** — High-performance local inference engine on NVIDIA GPUs (Linux / Windows) or Apple Silicon Macs (macOS 13+). Requires an API key.
 
 ```python
 import moondream as md
