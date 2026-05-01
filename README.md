@@ -1,6 +1,6 @@
 # Moondream Python Client Library
 
-Official Python client library for Moondream, a fast multi-function VLM. This client can target [Moondream Cloud](https://moondream.ai/cloud) or run locally on GPU via Photon.
+Official Python client library for Moondream, a fast multi-function VLM. This client can target [Moondream Cloud](https://moondream.ai/cloud) or run locally via Photon — on NVIDIA GPUs (Linux x86_64 / aarch64 or Windows) or Apple Silicon Macs.
 
 ## Capabilities
 
@@ -27,7 +27,7 @@ pip install moondream
 Choose how you want to run Moondream:
 
 1. **Moondream Cloud** — Get an API key from the [cloud console](https://moondream.ai/c/cloud/api-keys)
-2. **Moondream Photon** — High-performance local GPU inference engine (requires an NVIDIA GPU and an API key)
+2. **Moondream Photon** — High-performance local inference engine on NVIDIA GPUs (Linux / Windows) or Apple Silicon Macs (macOS 13+, Python 3.12). Requires an API key.
 
 ```python
 import moondream as md
@@ -36,7 +36,7 @@ from PIL import Image
 # Initialize with Moondream Cloud
 model = md.vl(api_key="<your-api-key>")
 
-# Or initialize with local GPU inference (Photon)
+# Or initialize with local inference (Photon — NVIDIA GPU or Apple Silicon)
 model = md.vl(api_key="<your-api-key>", local=True)
 
 # Load an image
@@ -61,7 +61,7 @@ for chunk in model.caption(image, stream=True)["caption"]:
 
 ```python
 model = md.vl(api_key="<your-api-key>")                        # Cloud
-model = md.vl(api_key="<your-api-key>", local=True)            # Photon (local GPU)
+model = md.vl(api_key="<your-api-key>", local=True)            # Photon (local: NVIDIA GPU or Apple Silicon)
 model = md.vl(api_key="<your-api-key>", model="moondream3-preview/ft_id@step")  # Finetune
 ```
 
