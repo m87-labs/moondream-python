@@ -7,6 +7,7 @@ import threading
 from io import BytesIO
 from typing import Generator, List, Literal, Optional, Union
 
+import torch
 from PIL import Image
 
 from .types import (
@@ -21,6 +22,18 @@ from .types import (
     SegmentOutput,
     SpatialRef,
 )
+
+
+def _default_photon_device() -> str:
+    """Choose the local Photon device when the caller does not specify one."""
+    if torch.cuda.is_available():
+        return "cuda"
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return "mps"
+    raise RuntimeError(
+        "Photon local inference needs a supported accelerator, but neither "
+        "CUDA nor Apple Silicon MPS is available in this Python environment."
+    )
 
 
 def _image_to_bytes(image: Union[Image.Image, EncodedImage]) -> bytes:
@@ -136,9 +149,10 @@ class PhotonVL(VLM):
         model: str = "moondream3-preview",
         max_batch_size: int = 4,
         kv_cache_pages: Optional[int] = None,
-        device: str = "cuda",
+        device: Optional[str] = None,
     ):
         base_model, self._adapter = _parse_model(model)
+        device = _default_photon_device() if device is None else device
         self._engine, self._loop, self._thread = _get_or_create_engine(
             base_model, max_batch_size, kv_cache_pages, device, api_key=api_key
         )
