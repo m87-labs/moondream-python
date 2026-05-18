@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.2
+
+- Upgraded the Photon local inference engine to `kestrel 0.4.0`. On Apple
+  Silicon, local installs now work across supported PyTorch 2.9-2.12 builds
+  instead of being tied to one PyTorch minor version.
+
 ## 1.2.1
 
 - Auto-detect the Photon local inference device when `device` is not specified,
