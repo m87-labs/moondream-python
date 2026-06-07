@@ -10,7 +10,7 @@ import urllib.parse
 import urllib.request
 from io import BytesIO
 from importlib.metadata import version as _pkg_version
-from typing import Dict, Generator, Iterable, List, Mapping, Optional, Sequence, Union
+from typing import Any, Dict, Generator, Iterable, List, Mapping, Optional, Sequence, Union
 
 from PIL import Image
 
@@ -67,6 +67,10 @@ _MAX_RETRIES = 10
 _RETRY_BASE_DELAY = 0.5
 _RETRY_MAX_DELAY = 30.0
 _REQUEST_TIMEOUT = 60.0
+# Train steps are inherently long (large groups / big models run tens of seconds
+# to minutes), well past the default socket-read timeout, so /train_step uses this
+# higher one instead.
+_TRAIN_REQUEST_TIMEOUT = 900.0
 
 
 class Finetune:
@@ -108,6 +112,7 @@ class Finetune:
         path: str,
         payload: Optional[dict] = None,
         query: Optional[dict] = None,
+        timeout: float = _REQUEST_TIMEOUT,
     ) -> dict:
         data = None if payload is None else json.dumps(payload).encode("utf-8")
         last_exc: Optional[Exception] = None
@@ -119,7 +124,7 @@ class Finetune:
                     headers=self._headers(has_body=payload is not None),
                     method=method,
                 )
-                with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as response:
+                with urllib.request.urlopen(req, timeout=timeout) as response:
                     body = response.read()
                     if not body:
                         return {}
@@ -281,7 +286,10 @@ class Finetune:
         self,
         groups: Sequence[Union[RLGroup, SFTGroup]],
         lr: float = 2e-4,
+        **kwargs: Any,
     ) -> TrainStepOutput:
+        """Extra keyword args are forwarded verbatim in the request body, so new
+        server-side /train_step fields work without a client change."""
         encoded_groups = []
         for group in groups:
             group = dict(group)
@@ -295,8 +303,11 @@ class Finetune:
             "finetune_id": self.finetune_id,
             "groups": encoded_groups,
             "lr": lr,
+            **kwargs,
         }
-        return self._request_json("POST", "/train_step", payload=payload)
+        return self._request_json(
+            "POST", "/train_step", payload=payload, timeout=_TRAIN_REQUEST_TIMEOUT
+        )
 
     def log_metrics(
         self,

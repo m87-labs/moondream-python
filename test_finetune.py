@@ -9,7 +9,7 @@ from unittest import mock
 import moondream as md
 from PIL import Image
 
-from moondream.finetune import Finetune, ft
+from moondream.finetune import Finetune, _TRAIN_REQUEST_TIMEOUT, ft
 from moondream.types import EncodedImage, RLGroup, SFTGroup
 
 
@@ -411,6 +411,31 @@ class FinetuneTests(unittest.TestCase):
                 "groups": [group],
                 "lr": 2e-4,
             },
+            timeout=_TRAIN_REQUEST_TIMEOUT,
+        )
+
+    def test_train_step_forwards_extra_kwargs(self):
+        group: RLGroup = {
+            "mode": "rl",
+            "request": {"skill": "query", "question": "What is this?"},
+            "rollouts": [_raw_rollout("query", {"answer": "A photo"})],
+        }
+
+        with mock.patch.object(
+            self.client, "_request_json", return_value={"step": 1, "applied": True}
+        ) as mocked:
+            self.client.train_step([group], extra_flag=True)
+
+        mocked.assert_called_once_with(
+            "POST",
+            "/train_step",
+            payload={
+                "finetune_id": "ft_123",
+                "groups": [group],
+                "lr": 2e-4,
+                "extra_flag": True,
+            },
+            timeout=_TRAIN_REQUEST_TIMEOUT,
         )
 
     def test_request_json_retries_timeout_then_succeeds(self):
