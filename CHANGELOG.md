@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0
+
+- Upgraded the Photon local inference engine to `kestrel 0.4.2`; see the
+  [Kestrel changelog](https://github.com/m87-labs/kestrel/blob/main/CHANGELOG.md#042--2026-06-06).
+- Updated the package Python requirement to match Kestrel's supported
+  Python 3.10-3.14 range.
+
 ## 1.2.2
 
 - Upgraded the Photon local inference engine to `kestrel 0.4.0`. On Apple
