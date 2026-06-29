@@ -130,7 +130,7 @@ def _get_or_create_engine(
         engine = asyncio.run_coroutine_threadsafe(
             InferenceEngine.create(cfg, api_key=api_key), loop
         ).result()
-    except BaseException:
+    except Exception:
         loop.call_soon_threadsafe(loop.stop)
         thread.join()
         raise
