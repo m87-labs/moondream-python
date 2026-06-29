@@ -28,6 +28,11 @@ def _default_photon_device() -> str:
     """Choose the local Photon device when the caller does not specify one."""
     if torch.cuda.is_available():
         return "cuda"
+    if torch.backends.cuda.is_built():
+        # CUDA was installed but failed to initialize. Let Kestrel validate the
+        # explicit CUDA device so users get the same driver/runtime diagnostic
+        # as they would when passing device="cuda" themselves.
+        return "cuda"
     if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
         return "mps"
     raise RuntimeError(
