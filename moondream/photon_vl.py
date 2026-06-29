@@ -28,6 +28,11 @@ def _default_photon_device() -> str:
     """Choose the local Photon device when the caller does not specify one."""
     if torch.cuda.is_available():
         return "cuda"
+    if torch.backends.cuda.is_built():
+        # CUDA was installed but failed to initialize. Let Kestrel validate the
+        # explicit CUDA device so users get the same driver/runtime diagnostic
+        # as they would when passing device="cuda" themselves.
+        return "cuda"
     if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
         return "mps"
     raise RuntimeError(
@@ -114,16 +119,21 @@ def _get_or_create_engine(
     thread = threading.Thread(target=loop.run_forever, daemon=True)
     thread.start()
 
-    cfg = RuntimeConfig(
-        model=base_model,
-        max_batch_size=max_batch_size,
-        kv_cache_pages=kv_cache_pages,
-        device=device,
-    )
+    try:
+        cfg = RuntimeConfig(
+            model=base_model,
+            max_batch_size=max_batch_size,
+            kv_cache_pages=kv_cache_pages,
+            device=device,
+        )
 
-    engine = asyncio.run_coroutine_threadsafe(
-        InferenceEngine.create(cfg, api_key=api_key), loop
-    ).result()
+        engine = asyncio.run_coroutine_threadsafe(
+            InferenceEngine.create(cfg, api_key=api_key), loop
+        ).result()
+    except Exception:
+        loop.call_soon_threadsafe(loop.stop)
+        thread.join()
+        raise
 
     entry = (engine, loop, thread)
     with _cache_lock:
