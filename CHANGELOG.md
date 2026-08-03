@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.1
+
+- Fixed Photon local inference for finetuned checkpoints whose IDs use the
+  current ULID format.
+
 ## 2.0.0
 
 - Upgraded Photon local inference to `kestrel 0.5.0`. Moondream 2 and

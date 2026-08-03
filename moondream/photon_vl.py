@@ -71,11 +71,12 @@ def _parse_model(model: str) -> tuple[str, Optional[str]]:
     """Parse a model string into (base_model, adapter).
 
     "moondream3-preview" -> ("moondream3-preview", None)
-    "moondream3-preview/ft_abc@1000" -> ("moondream3-preview", "ft_abc@1000")
+    "moondream3-preview/01HXYZ@1000" -> ("moondream3-preview", "01HXYZ@1000")
     "Qwen/Qwen3.5-4B" -> ("Qwen/Qwen3.5-4B", None)
     """
     base, separator, suffix = model.rpartition("/")
-    if separator and suffix.startswith("ft_"):
+    finetune_id, checkpoint_separator, step = suffix.rpartition("@")
+    if separator and checkpoint_separator and finetune_id and step.isdigit():
         return base, suffix
     return model, None
 

@@ -17,9 +17,24 @@ def test_model_parser_preserves_registered_repository_ids():
 
 
 def test_model_parser_extracts_explicit_finetune_suffix():
+    assert _parse_model("moondream3-preview/01HXYZ@1000") == (
+        "moondream3-preview",
+        "01HXYZ@1000",
+    )
     assert _parse_model("moondream3-preview/ft_abc@1000") == (
         "moondream3-preview",
         "ft_abc@1000",
+    )
+
+
+def test_model_parser_rejects_malformed_finetune_suffixes():
+    assert _parse_model("moondream3-preview/01HXYZ") == (
+        "moondream3-preview/01HXYZ",
+        None,
+    )
+    assert _parse_model("moondream3-preview/01HXYZ@latest") == (
+        "moondream3-preview/01HXYZ@latest",
+        None,
     )
 
 
