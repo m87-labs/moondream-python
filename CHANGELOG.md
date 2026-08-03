@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.0.0
+
+- Upgraded Photon local inference to `kestrel 0.5.0`. Moondream 2 and
+  Moondream 3 now automatically use bundled whole-model decode kernels on
+  supported NVIDIA GPUs, with the regular optimized path retained as a
+  transparent fallback.
+- Added local inference support for Moondream 3.1 9B A2B.
+- Improved responsiveness under large request bursts and made startup and
+  out-of-memory failures safer for concurrent workloads.
+- Local sampling settings are now forwarded consistently, including
+  temperature, top-p, output limits, and spatial object limits.
+- Pinned Kestrel exactly so every `moondream 2.0.0` installation uses the
+  engine and bundled-kernel release validated with this client.
+
+See the [Kestrel 0.5.0 changelog](https://github.com/m87-labs/kestrel/blob/main/CHANGELOG.md#050--2026-08-02)
+for the complete engine release notes.
+
 ## 1.3.0
 
 - Upgraded the Photon local inference engine to `kestrel 0.4.2`; see the

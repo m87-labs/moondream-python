@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import os
 import queue
 import threading
 from io import BytesIO
@@ -78,10 +79,7 @@ def _build_settings(
     adapter: Optional[str] = None,
 ) -> Optional[dict]:
     """Map moondream SamplingSettings + adapter to kestrel settings dict."""
-    out: dict = {}
-    if settings is not None:
-        if "max_tokens" in settings:
-            out["max_tokens"] = settings["max_tokens"]
+    out: dict = dict(settings or {})
     if adapter is not None:
         out["adapter"] = adapter
     return out if out else None
@@ -90,8 +88,8 @@ def _build_settings(
 # ------------------------------------------------------------------
 # Singleton engine cache
 # ------------------------------------------------------------------
-# Keyed by (base_model, device, max_batch_size, kv_cache_pages) so that
-# PhotonVL instances differing only by adapter share the same engine.
+# PhotonVL instances differing only by adapter share an engine. Credentials
+# remain isolated because the engine owns the adapter provider for its key.
 
 _engine_cache: dict[tuple, tuple] = {}  # key -> (engine, loop, thread)
 _cache_lock = threading.Lock()
@@ -99,13 +97,14 @@ _cache_lock = threading.Lock()
 
 def _get_or_create_engine(
     base_model: str,
-    max_batch_size: int,
-    kv_cache_pages: Optional[int],
-    device: str,
+    runtime_config: dict,
     api_key: Optional[str] = None,
 ):
     """Return a shared (engine, loop, thread) for the given config."""
-    key = (base_model, device, max_batch_size, kv_cache_pages)
+    effective_api_key = (
+        api_key if api_key is not None else os.environ.get("MOONDREAM_API_KEY")
+    )
+    key = (base_model, tuple(sorted(runtime_config.items())), effective_api_key)
 
     with _cache_lock:
         if key in _engine_cache:
@@ -122,13 +121,11 @@ def _get_or_create_engine(
     try:
         cfg = RuntimeConfig(
             model=base_model,
-            max_batch_size=max_batch_size,
-            kv_cache_pages=kv_cache_pages,
-            device=device,
+            **runtime_config,
         )
 
         engine = asyncio.run_coroutine_threadsafe(
-            InferenceEngine.create(cfg, api_key=api_key), loop
+            InferenceEngine.create(cfg, api_key=effective_api_key), loop
         ).result()
     except Exception:
         loop.call_soon_threadsafe(loop.stop)
@@ -157,14 +154,13 @@ class PhotonVL(VLM):
         *,
         api_key: Optional[str] = None,
         model: str = "moondream3-preview",
-        max_batch_size: int = 4,
-        kv_cache_pages: Optional[int] = None,
-        device: Optional[str] = None,
+        **runtime_config,
     ):
         base_model, self._adapter = _parse_model(model)
-        device = _default_photon_device() if device is None else device
+        if runtime_config.get("device") is None:
+            runtime_config["device"] = _default_photon_device()
         self._engine, self._loop, self._thread = _get_or_create_engine(
-            base_model, max_batch_size, kv_cache_pages, device, api_key=api_key
+            base_model, runtime_config, api_key=api_key
         )
 
     # ------------------------------------------------------------------

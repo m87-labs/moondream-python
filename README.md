@@ -27,7 +27,7 @@ pip install moondream
 Choose how you want to run Moondream:
 
 1. **Moondream Cloud** — Get an API key from the [cloud console](https://moondream.ai/c/cloud/api-keys)
-2. **Moondream Photon** — High-performance local inference engine on NVIDIA GPUs (Linux / Windows) or Apple Silicon Macs (macOS 13+). Requires an API key.
+2. **Moondream Photon** — High-performance local inference engine on NVIDIA GPUs (Linux / Windows) or Apple Silicon Macs (macOS 13+). Base models run locally without an API key; an API key is only needed for finetuned models.
 
 ```python
 import moondream as md
@@ -37,7 +37,7 @@ from PIL import Image
 model = md.vl(api_key="<your-api-key>")
 
 # Or initialize with local inference (Photon — NVIDIA GPU or Apple Silicon)
-model = md.vl(api_key="<your-api-key>", local=True)
+model = md.vl(local=True)
 
 # Load an image
 image = Image.open("path/to/image.jpg")
@@ -61,7 +61,7 @@ for chunk in model.caption(image, stream=True)["caption"]:
 
 ```python
 model = md.vl(api_key="<your-api-key>")                        # Cloud
-model = md.vl(api_key="<your-api-key>", local=True)            # Photon (local: NVIDIA GPU or Apple Silicon)
+model = md.vl(local=True)                                      # Photon (local: NVIDIA GPU or Apple Silicon)
 model = md.vl(api_key="<your-api-key>", model="moondream3-preview/ft_id@step")  # Finetune
 ```
 
