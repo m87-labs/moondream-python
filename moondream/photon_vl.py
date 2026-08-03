@@ -100,17 +100,20 @@ _engine_cache: dict[tuple, tuple] = {}  # key -> (engine, loop, thread, refs)
 _cache_lock = threading.Lock()
 
 
-def _stop_engine(engine, loop, thread) -> None:
+def _stop_engine(engine, loop, thread, *, suppress_errors: bool = False) -> None:
+    failure = None
     if loop.is_running():
         try:
             asyncio.run_coroutine_threadsafe(
                 engine.shutdown(), loop
             ).result(timeout=30)
-        except Exception:
-            pass
+        except Exception as exc:
+            failure = exc
         finally:
             loop.call_soon_threadsafe(loop.stop)
     thread.join(timeout=30)
+    if failure is not None and not suppress_errors:
+        raise failure
 
 
 def _shutdown_cached_engines() -> None:
@@ -120,7 +123,7 @@ def _shutdown_cached_engines() -> None:
         _engine_cache.clear()
 
     for engine, loop, thread, _refs in entries:
-        _stop_engine(engine, loop, thread)
+        _stop_engine(engine, loop, thread, suppress_errors=True)
 
 
 atexit.register(_shutdown_cached_engines)
