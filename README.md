@@ -55,7 +55,7 @@ from PIL import Image
 model = md.vl(api_key="<your-api-key>")
 
 # Or initialize Photon local inference (NVIDIA GPU or Apple Silicon)
-model = md.photon("moondream3-preview")
+model = md.photon("moondream3.1-9B-A2B")
 
 # Load an image
 image = Image.open("path/to/image.jpg")
@@ -87,7 +87,7 @@ print(chat["message"]["content"])
 
 ```python
 model = md.vl(api_key="<your-api-key>")                        # Cloud
-model = md.photon("moondream3-preview")                        # Photon with Moondream 3
+model = md.photon("moondream3.1-9B-A2B")                       # Photon with Moondream 3.1
 model = md.vl(api_key="<your-api-key>", model="moondream3-preview/ft_id@step")  # Finetune
 qwen = md.photon("Qwen/Qwen3.5-4B")
 gemma = md.photon("google/gemma-4-E2B-it")
@@ -95,7 +95,7 @@ gemma = md.photon("google/gemma-4-E2B-it")
 
 Photon clients share matching local engines. Call `model.close()` when an
 application is finished with a client, or use
-`with md.photon("moondream3-preview") as model:`
+`with md.photon("moondream3.1-9B-A2B") as model:`
 for deterministic GPU and worker cleanup.
 
 ### Methods

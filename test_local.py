@@ -126,7 +126,7 @@ def main(image_path: str):
         sys.exit(1)
 
     # Instantiate the client in local mode.
-    client = md.vl(local=True, model="moondream3-preview")
+    client = md.vl(local=True, model="moondream3.1-9B-A2B")
 
     # Test the caption method.
     try:
