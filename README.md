@@ -10,11 +10,29 @@ Moondream goes beyond the typical VLM "query" ability to include more visual fun
 |--------|-------------|
 | `caption` | Generate descriptive captions for images |
 | `query` | Ask questions about image content |
+| `chat` | Continue multi-turn conversations with text and images |
 | `detect` | Find bounding boxes around objects in images |
 | `point` | Identify the center location of specified objects |
 | `segment` | Generate an SVG path segmentation mask for objects |
 
 Try it out on [Moondream's playground](https://moondream.ai/playground).
+
+## Photon Models
+
+Photon local inference includes all models bundled with Kestrel 0.5:
+
+| Family | Models |
+|--------|--------|
+| Moondream | Moondream 2, Moondream 3, Moondream 3.1 9B A2B |
+| Qwen 3.5 | 0.8B, 2B, 4B, 9B, 27B, and 35B-A3B; Base variants where published |
+| Qwen 3.6 | 27B and 35B-A3B; BF16 and FP8 checkpoints |
+| Gemma 4 | E2B, E4B, and 31B base/instruction variants |
+
+Use `md.photon_models()` to inspect the exact registered identifiers in the installed
+release. The returned client reports `model_id`, `tasks`, and
+`supports(task)` without requiring a Kestrel import.
+Existing `md.vl(local=True, ...)` calls remain supported and delegate to
+`md.photon(...)`.
 
 ## Installation
 
@@ -27,7 +45,7 @@ pip install moondream
 Choose how you want to run Moondream:
 
 1. **Moondream Cloud** — Get an API key from the [cloud console](https://moondream.ai/c/cloud/api-keys)
-2. **Moondream Photon** — High-performance local inference engine on NVIDIA GPUs (Linux / Windows) or Apple Silicon Macs (macOS 13+). Requires an API key.
+2. **Moondream Photon** — High-performance local inference engine on NVIDIA GPUs (Linux / Windows) or Apple Silicon Macs (macOS 13+). Base models run locally without an API key; an API key is only needed for finetuned models.
 
 ```python
 import moondream as md
@@ -36,8 +54,8 @@ from PIL import Image
 # Initialize with Moondream Cloud
 model = md.vl(api_key="<your-api-key>")
 
-# Or initialize with local inference (Photon — NVIDIA GPU or Apple Silicon)
-model = md.vl(api_key="<your-api-key>", local=True)
+# Or initialize Photon local inference (NVIDIA GPU or Apple Silicon)
+model = md.photon()
 
 # Load an image
 image = Image.open("path/to/image.jpg")
@@ -53,6 +71,14 @@ print("Answer:", answer)
 # Stream the response
 for chunk in model.caption(image, stream=True)["caption"]:
     print(chunk, end="", flush=True)
+
+# Multi-turn chat accepts OpenAI-style messages
+chat = model.chat([
+    {"role": "user", "content": "My name is Alice."},
+    {"role": "assistant", "content": "Nice to meet you, Alice!"},
+    {"role": "user", "content": "What is my name?"},
+])
+print(chat["message"]["content"])
 ```
 
 ## API Reference
@@ -61,9 +87,15 @@ for chunk in model.caption(image, stream=True)["caption"]:
 
 ```python
 model = md.vl(api_key="<your-api-key>")                        # Cloud
-model = md.vl(api_key="<your-api-key>", local=True)            # Photon (local: NVIDIA GPU or Apple Silicon)
+model = md.photon()                                            # Photon with Moondream 3
 model = md.vl(api_key="<your-api-key>", model="moondream3-preview/ft_id@step")  # Finetune
+qwen = md.photon("Qwen/Qwen3.5-4B")
+gemma = md.photon("google/gemma-4-E2B-it")
 ```
+
+Photon clients share matching local engines. Call `model.close()` when an
+application is finished with a client, or use `with md.photon() as model:`
+for deterministic GPU and worker cleanup.
 
 ### Methods
 
@@ -88,7 +120,7 @@ for chunk in model.caption(image, stream=True)["caption"]:
 
 ---
 
-#### `query(image, question, stream=False)`
+#### `query(image, question, stream=False, spatial_refs=None)`
 
 Ask a question about an image.
 
@@ -96,6 +128,7 @@ Ask a question about an image.
 - `image` — `Image.Image` or `EncodedImage`
 - `question` — `str`
 - `stream` — `bool` (default: `False`)
+- `spatial_refs` — optional point or box hints, normalized to 0-1
 
 **Returns:** `QueryOutput` — `{"answer": str | Generator}`
 
@@ -104,6 +137,29 @@ answer = model.query(image, "What's in this image?")["answer"]
 
 # With streaming
 for chunk in model.query(image, "What's in this image?", stream=True)["answer"]:
+    print(chunk, end="", flush=True)
+```
+
+---
+
+#### `chat(messages, stream=False, reasoning=None)`
+
+Continue an OpenAI-style multi-turn conversation. Message content can be text
+or a list of `text` and base64 `image_url` parts. When `reasoning` is omitted,
+the selected model or Cloud service supplies its default.
+
+```python
+result = model.chat([
+    {"role": "user", "content": "Remember that my favorite color is green."},
+    {"role": "assistant", "content": "Got it."},
+    {"role": "user", "content": "What is my favorite color?"},
+])
+print(result["message"]["content"])
+
+for chunk in model.chat(
+    [{"role": "user", "content": "Write a short poem about the moon."}],
+    stream=True,
+)["message"]:
     print(chunk, end="", flush=True)
 ```
 
@@ -125,13 +181,14 @@ objects = model.detect(image, "car")["objects"]
 
 ---
 
-#### `point(image, object)`
+#### `point(image, object, spatial_refs=None)`
 
 Get coordinates of specific objects in an image.
 
 **Parameters:**
 - `image` — `Image.Image` or `EncodedImage`
 - `object` — `str`
+- `spatial_refs` — optional point or box hints, normalized to 0-1
 
 **Returns:** `PointOutput` — `{"points": List[Point]}`
 

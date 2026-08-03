@@ -1,7 +1,52 @@
 import sys
 import os
+import json
+
 import moondream as md
 from PIL import Image
+
+
+def test_cloud_chat_preserves_service_reasoning_default(monkeypatch):
+    payloads = []
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return None
+
+        def read(self):
+            return json.dumps(
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": "answer",
+                            },
+                            "finish_reason": None,
+                        }
+                    ]
+                }
+            ).encode()
+
+    def fake_urlopen(request):
+        payloads.append(json.loads(request.data))
+        return FakeResponse()
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    client = md.vl(api_key="key")
+
+    result = client.chat([{"role": "user", "content": "question"}])
+    client.chat(
+        [{"role": "user", "content": "question"}],
+        reasoning=False,
+    )
+
+    assert "reasoning" not in payloads[0]
+    assert payloads[1]["reasoning"] is False
+    assert result["finish_reason"] == "stop"
 
 
 def main(image_path: str):

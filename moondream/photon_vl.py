@@ -1,7 +1,10 @@
 """Local GPU inference backend using kestrel (Photon)."""
 
 import asyncio
+import atexit
 import base64
+import json
+import os
 import queue
 import threading
 from io import BytesIO
@@ -14,12 +17,15 @@ from .types import (
     VLM,
     Base64EncodedImage,
     CaptionOutput,
+    ChatMessage,
+    ChatOutput,
     DetectOutput,
     EncodedImage,
     PointOutput,
     QueryOutput,
     SamplingSettings,
     SegmentOutput,
+    SegmentStreamOutput,
     SpatialRef,
 )
 
@@ -66,11 +72,12 @@ def _parse_model(model: str) -> tuple[str, Optional[str]]:
 
     "moondream3-preview" -> ("moondream3-preview", None)
     "moondream3-preview/ft_abc@1000" -> ("moondream3-preview", "ft_abc@1000")
+    "Qwen/Qwen3.5-4B" -> ("Qwen/Qwen3.5-4B", None)
     """
-    if "/" not in model:
-        return model, None
-    base, adapter = model.split("/", 1)
-    return base, adapter
+    base, separator, suffix = model.rpartition("/")
+    if separator and suffix.startswith("ft_"):
+        return base, suffix
+    return model, None
 
 
 def _build_settings(
@@ -78,10 +85,7 @@ def _build_settings(
     adapter: Optional[str] = None,
 ) -> Optional[dict]:
     """Map moondream SamplingSettings + adapter to kestrel settings dict."""
-    out: dict = {}
-    if settings is not None:
-        if "max_tokens" in settings:
-            out["max_tokens"] = settings["max_tokens"]
+    out: dict = dict(settings or {})
     if adapter is not None:
         out["adapter"] = adapter
     return out if out else None
@@ -90,26 +94,62 @@ def _build_settings(
 # ------------------------------------------------------------------
 # Singleton engine cache
 # ------------------------------------------------------------------
-# Keyed by (base_model, device, max_batch_size, kv_cache_pages) so that
-# PhotonVL instances differing only by adapter share the same engine.
+# PhotonVL instances differing only by adapter share an engine. Credentials
+# remain isolated because the engine owns the adapter provider for its key.
 
-_engine_cache: dict[tuple, tuple] = {}  # key -> (engine, loop, thread)
+_engine_cache: dict[tuple, tuple] = {}  # key -> (engine, loop, thread, refs)
 _cache_lock = threading.Lock()
+
+
+def _stop_engine(engine, loop, thread, *, suppress_errors: bool = False) -> None:
+    failure = None
+    if loop.is_running():
+        try:
+            asyncio.run_coroutine_threadsafe(
+                engine.shutdown(), loop
+            ).result(timeout=30)
+        except Exception as exc:
+            failure = exc
+        finally:
+            loop.call_soon_threadsafe(loop.stop)
+    thread.join(timeout=30)
+    if failure is not None and not suppress_errors:
+        raise failure
+
+
+def _shutdown_cached_engines() -> None:
+    """Stop shared engines before Python tears down CUDA and worker threads."""
+    with _cache_lock:
+        entries = list(_engine_cache.values())
+        _engine_cache.clear()
+
+    for engine, loop, thread, _refs in entries:
+        _stop_engine(engine, loop, thread, suppress_errors=True)
+
+
+# Engine shutdown may perform async DNS during its final telemetry flush.
+# CPython tears down the shared thread-pool executor before normal atexit
+# callbacks, so clean up before thread shutdown when that hook is available.
+_register_shutdown = getattr(threading, "_register_atexit", atexit.register)
+_register_shutdown(_shutdown_cached_engines)
 
 
 def _get_or_create_engine(
     base_model: str,
-    max_batch_size: int,
-    kv_cache_pages: Optional[int],
-    device: str,
+    runtime_config: dict,
     api_key: Optional[str] = None,
 ):
-    """Return a shared (engine, loop, thread) for the given config."""
-    key = (base_model, device, max_batch_size, kv_cache_pages)
+    """Acquire a shared engine for the given config."""
+    effective_api_key = (
+        api_key if api_key is not None else os.environ.get("MOONDREAM_API_KEY")
+    )
+    key = (base_model, tuple(sorted(runtime_config.items())), effective_api_key)
 
     with _cache_lock:
         if key in _engine_cache:
-            return _engine_cache[key]
+            engine, loop, thread, refs = _engine_cache[key]
+            _engine_cache[key] = (engine, loop, thread, refs + 1)
+            return engine, loop, thread, key
 
     # Import kestrel lazily so non-GPU environments can still import moondream.
     from kestrel import InferenceEngine
@@ -122,31 +162,56 @@ def _get_or_create_engine(
     try:
         cfg = RuntimeConfig(
             model=base_model,
-            max_batch_size=max_batch_size,
-            kv_cache_pages=kv_cache_pages,
-            device=device,
+            **runtime_config,
         )
 
         engine = asyncio.run_coroutine_threadsafe(
-            InferenceEngine.create(cfg, api_key=api_key), loop
+            InferenceEngine.create(cfg, api_key=effective_api_key), loop
         ).result()
     except Exception:
         loop.call_soon_threadsafe(loop.stop)
         thread.join()
         raise
 
-    entry = (engine, loop, thread)
+    loser = None
     with _cache_lock:
         # Another thread may have raced us; use the winner.
         if key in _engine_cache:
-            # Shut down the engine we just created.
-            asyncio.run_coroutine_threadsafe(engine.shutdown(), loop).result()
-            loop.call_soon_threadsafe(loop.stop)
-            thread.join()
-            return _engine_cache[key]
-        _engine_cache[key] = entry
+            winner_engine, winner_loop, winner_thread, refs = _engine_cache[key]
+            _engine_cache[key] = (
+                winner_engine,
+                winner_loop,
+                winner_thread,
+                refs + 1,
+            )
+            loser = (engine, loop, thread)
+        else:
+            _engine_cache[key] = (engine, loop, thread, 1)
 
-    return entry
+    if loser is not None:
+        try:
+            _stop_engine(*loser)
+        except Exception:
+            _release_engine(key)
+            raise
+        return winner_engine, winner_loop, winner_thread, key
+
+    return engine, loop, thread, key
+
+
+def _release_engine(key: tuple) -> None:
+    entry = None
+    with _cache_lock:
+        cached = _engine_cache.get(key)
+        if cached is None:
+            return
+        engine, loop, thread, refs = cached
+        if refs > 1:
+            _engine_cache[key] = (engine, loop, thread, refs - 1)
+            return
+        entry = _engine_cache.pop(key)
+
+    _stop_engine(*entry[:3])
 
 
 class PhotonVL(VLM):
@@ -157,15 +222,38 @@ class PhotonVL(VLM):
         *,
         api_key: Optional[str] = None,
         model: str = "moondream3-preview",
-        max_batch_size: int = 4,
-        kv_cache_pages: Optional[int] = None,
-        device: Optional[str] = None,
+        **runtime_config,
     ):
         base_model, self._adapter = _parse_model(model)
-        device = _default_photon_device() if device is None else device
-        self._engine, self._loop, self._thread = _get_or_create_engine(
-            base_model, max_batch_size, kv_cache_pages, device, api_key=api_key
-        )
+        if runtime_config.get("device") is None:
+            runtime_config["device"] = _default_photon_device()
+        (
+            self._engine,
+            self._loop,
+            self._thread,
+            self._engine_key,
+        ) = _get_or_create_engine(base_model, runtime_config, api_key=api_key)
+        self._model = self._engine.model()
+
+    def close(self) -> None:
+        """Release this client's reference to its shared local engine."""
+        with _cache_lock:
+            key = self._engine_key
+            if key is None:
+                return
+            self._engine_key = None
+        _release_engine(key)
+
+    @property
+    def model_id(self) -> str:
+        return self._model.model_id
+
+    @property
+    def tasks(self) -> tuple[str, ...]:
+        return self._model.tasks
+
+    def supports(self, task: str) -> bool:
+        return self._model.supports(task)
 
     # ------------------------------------------------------------------
     # Helpers
@@ -185,6 +273,43 @@ class PhotonVL(VLM):
                 async for update in stream:
                     q.put(update.text)
                 q.put(None)  # sentinel
+            except Exception as exc:
+                q.put(exc)
+
+        asyncio.run_coroutine_threadsafe(_consume(), self._loop)
+
+        while True:
+            item = q.get()
+            if item is None:
+                return
+            if isinstance(item, Exception):
+                raise item
+            yield item
+
+    def _segment_stream_to_generator(self, coro) -> SegmentStreamOutput:
+        """Bridge Kestrel's segment stream into the public update shape."""
+        q: queue.Queue = queue.Queue()
+
+        async def _consume():
+            try:
+                stream = await coro
+                async for update in stream:
+                    text = update.text
+                    if text.startswith("__BBOX__"):
+                        q.put({"bbox": json.loads(text[len("__BBOX__"):])})
+                    elif text:
+                        q.put({"chunk": text})
+
+                result = await stream.result()
+                segment = result.output["segments"][0]
+                q.put(
+                    {
+                        "path": segment["svg_path"],
+                        "bbox": segment.get("bbox"),
+                        "completed": True,
+                    }
+                )
+                q.put(None)
             except Exception as exc:
                 q.put(exc)
 
@@ -238,8 +363,8 @@ class PhotonVL(VLM):
 
         if stream:
             gen = self._stream_to_generator(
-                self._engine.caption(
-                    image_bytes,
+                self._model.caption(
+                    image=image_bytes,
                     length=length,
                     stream=True,
                     settings=engine_settings,
@@ -248,8 +373,8 @@ class PhotonVL(VLM):
             return {"caption": gen}
 
         result = self._run(
-            self._engine.caption(
-                image_bytes,
+            self._model.caption(
+                image=image_bytes,
                 length=length,
                 stream=False,
                 settings=engine_settings,
@@ -264,6 +389,7 @@ class PhotonVL(VLM):
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
         reasoning: bool = False,
+        spatial_refs: Optional[List[SpatialRef]] = None,
     ) -> QueryOutput:
         if question is None:
             raise ValueError("question parameter is required")
@@ -273,10 +399,11 @@ class PhotonVL(VLM):
 
         if stream:
             gen = self._stream_to_generator(
-                self._engine.query(
+                self._model.query(
                     image=image_bytes,
                     question=question,
                     reasoning=reasoning,
+                    spatial_refs=spatial_refs,
                     stream=True,
                     settings=engine_settings,
                 )
@@ -284,10 +411,11 @@ class PhotonVL(VLM):
             return {"answer": gen}
 
         result = self._run(
-            self._engine.query(
+            self._model.query(
                 image=image_bytes,
                 question=question,
                 reasoning=reasoning,
+                spatial_refs=spatial_refs,
                 stream=False,
                 settings=engine_settings,
             )
@@ -297,6 +425,38 @@ class PhotonVL(VLM):
             output["reasoning"] = result.output["reasoning"]
         return output
 
+    def chat(
+        self,
+        messages: List[ChatMessage],
+        stream: bool = False,
+        settings: Optional[SamplingSettings] = None,
+        reasoning: Optional[bool] = None,
+    ) -> ChatOutput:
+        prompt: dict[str, object] = {
+            "messages": messages,
+            "stream": stream,
+            "settings": self._settings(settings),
+        }
+        if reasoning is not None:
+            prompt["reasoning"] = reasoning
+
+        if stream:
+            return {
+                "message": self._stream_to_generator(
+                    self._model.chat(**prompt)
+                )
+            }
+
+        result = self._run(self._model.chat(**prompt))
+        return {
+            "message": result.output["message"],
+            "finish_reason": (
+                result.output.get("finish_reason")
+                or result.finish_reason
+                or "stop"
+            ),
+        }
+
     def detect(
         self,
         image: Union[Image.Image, EncodedImage],
@@ -305,7 +465,11 @@ class PhotonVL(VLM):
     ) -> DetectOutput:
         image_bytes = _image_to_bytes(image)
         result = self._run(
-            self._engine.detect(image_bytes, object, settings=self._settings(settings))
+            self._model.detect(
+                image=image_bytes,
+                object=object,
+                settings=self._settings(settings),
+            )
         )
         return {"objects": result.output["objects"]}
 
@@ -314,10 +478,16 @@ class PhotonVL(VLM):
         image: Union[Image.Image, EncodedImage],
         object: str,
         settings: Optional[SamplingSettings] = None,
+        spatial_refs: Optional[List[SpatialRef]] = None,
     ) -> PointOutput:
         image_bytes = _image_to_bytes(image)
         result = self._run(
-            self._engine.point(image_bytes, object, settings=self._settings(settings))
+            self._model.point(
+                image=image_bytes,
+                object=object,
+                settings=self._settings(settings),
+                spatial_refs=spatial_refs,
+            )
         )
         return {"points": result.output["points"]}
 
@@ -328,18 +498,29 @@ class PhotonVL(VLM):
         spatial_refs: Optional[List[SpatialRef]] = None,
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
-    ) -> SegmentOutput:
+    ) -> Union[SegmentOutput, SegmentStreamOutput]:
         image_bytes = _image_to_bytes(image)
+        if stream:
+            return self._segment_stream_to_generator(
+                self._model.segment(
+                    image=image_bytes,
+                    object=object,
+                    spatial_refs=spatial_refs,
+                    stream=True,
+                    settings=self._settings(settings),
+                )
+            )
+
         result = self._run(
-            self._engine.segment(
-                image_bytes,
-                object,
+            self._model.segment(
+                image=image_bytes,
+                object=object,
                 spatial_refs=spatial_refs,
                 settings=self._settings(settings),
             )
         )
         seg = result.output["segments"][0]
-        output: SegmentOutput = {"path": seg["path"]}
+        output: SegmentOutput = {"path": seg["svg_path"]}
         if seg.get("bbox"):
             output["bbox"] = seg["bbox"]
         return output
