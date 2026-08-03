@@ -55,6 +55,25 @@ QueryOutput = TypedDict(
     total=False
 )
 
+ChatMessage = TypedDict(
+    "ChatMessage",
+    {
+        "role": Literal["system", "user", "assistant"],
+        "content": object,
+        "reasoning": str,
+    },
+    total=False,
+)
+
+ChatOutput = TypedDict(
+    "ChatOutput",
+    {
+        "message": Union[ChatMessage, Generator[str, None, None]],
+        "finish_reason": str,
+    },
+    total=False,
+)
+
 Region = TypedDict(
     "Region", {"x_min": float, "y_min": float, "x_max": float, "y_max": float}
 )
@@ -254,6 +273,15 @@ SFTGroup = TypedDict(
 
 
 class VLM(ABC):
+    def close(self) -> None:
+        """Release backend resources held by this client."""
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        self.close()
+
     @abstractmethod
     def encode_image(self, image: Union[Image.Image, EncodedImage]) -> EncodedImage:
         """
@@ -275,7 +303,7 @@ class VLM(ABC):
     def caption(
         self,
         image: Union[Image.Image, EncodedImage],
-        length: Literal["normal", "short"] = "normal",
+        length: Literal["normal", "short", "long"] = "normal",
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
     ) -> CaptionOutput:
@@ -284,7 +312,7 @@ class VLM(ABC):
 
         Args:
             image (Union[Image.Image, EncodedImage]): The input image to be captioned.
-            length (str): Length of caption to generate. Can be "normal" or "short".
+            length (str): Length of caption to generate. Can be "normal", "short", or "long".
                 Defaults to "normal".
             stream (bool): If True, returns a generator that streams the output tokens.
                 Defaults to False.
@@ -304,6 +332,7 @@ class VLM(ABC):
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
         reasoning: bool = False,
+        spatial_refs: Optional[List[SpatialRef]] = None,
     ) -> QueryOutput:
         """
         Generate an answer to the input question about the input image.
@@ -322,10 +351,21 @@ class VLM(ABC):
         """
 
     @abstractmethod
+    def chat(
+        self,
+        messages: List[ChatMessage],
+        stream: bool = False,
+        settings: Optional[SamplingSettings] = None,
+        reasoning: bool = False,
+    ) -> ChatOutput:
+        """Continue an OpenAI-style multi-turn conversation."""
+
+    @abstractmethod
     def detect(
         self,
         image: Union[Image.Image, EncodedImage],
         object: str,
+        settings: Optional[SamplingSettings] = None,
     ) -> DetectOutput:
         """
         Detect and localize the specified object in the input image.
@@ -333,6 +373,7 @@ class VLM(ABC):
         Args:
             image (Union[Image.Image, EncodedImage]): The input image to be analyzed.
             object (str): The object to be detected in the image.
+            settings (Optional[SamplingSettings]): Optional generation settings.
 
         Returns:
             DetectOutput: A dictionary containing:
@@ -349,6 +390,8 @@ class VLM(ABC):
         self,
         image: Union[Image.Image, EncodedImage],
         object: str,
+        settings: Optional[SamplingSettings] = None,
+        spatial_refs: Optional[List[SpatialRef]] = None,
     ) -> PointOutput:
         """
         Points out all instances of the given object in the input image.

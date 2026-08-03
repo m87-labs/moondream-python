@@ -11,6 +11,10 @@
   out-of-memory failures safer for concurrent workloads.
 - Local sampling settings are now forwarded consistently, including
   temperature, top-p, output limits, and spatial object limits.
+- Added multi-turn chat and spatial-reference guidance consistently across
+  Cloud and Photon local inference.
+- Photon clients can now release shared local engine resources deterministically
+  with `close()` or a context manager.
 - Pinned Kestrel exactly so every `moondream 2.0.0` installation uses the
   engine and bundled-kernel release validated with this client.
 

@@ -10,6 +10,8 @@ from .types import (
     VLM,
     Base64EncodedImage,
     CaptionOutput,
+    ChatMessage,
+    ChatOutput,
     DetectOutput,
     EncodedImage,
     PointOutput,
@@ -120,6 +122,7 @@ class CloudVL(VLM):
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
         reasoning: bool = False,
+        spatial_refs: Optional[list[SpatialRef]] = None,
     ) -> QueryOutput:
         if question is None:
             raise ValueError("question parameter is required")
@@ -138,6 +141,8 @@ class CloudVL(VLM):
             payload["settings"] = settings
         if reasoning:
             payload["reasoning"] = reasoning
+        if spatial_refs is not None:
+            payload["spatial_refs"] = spatial_refs
 
         data = json.dumps(payload).encode("utf-8")
         headers = {
@@ -161,6 +166,72 @@ class CloudVL(VLM):
             if "reasoning" in result and result["reasoning"] is not None:
                 output["reasoning"] = result["reasoning"]
             return output
+
+    def chat(
+        self,
+        messages: list[ChatMessage],
+        stream: bool = False,
+        settings: Optional[SamplingSettings] = None,
+        reasoning: bool = False,
+    ) -> ChatOutput:
+        payload = {
+            "model": self.model or "moondream3-preview",
+            "messages": messages,
+            "stream": stream,
+            "reasoning": reasoning,
+        }
+        if settings is not None:
+            if "temperature" in settings:
+                payload["temperature"] = settings["temperature"]
+            if "top_p" in settings:
+                payload["top_p"] = settings["top_p"]
+            if "max_tokens" in settings:
+                payload["max_completion_tokens"] = settings["max_tokens"]
+
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": f"moondream-python/{__version__}",
+        }
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        req = urllib.request.Request(
+            f"{self.endpoint}/chat/completions",
+            data=json.dumps(payload).encode("utf-8"),
+            headers=headers,
+        )
+
+        if stream:
+            return {"message": self._stream_chat_response(req)}
+
+        with urllib.request.urlopen(req) as response:
+            result = json.loads(response.read().decode("utf-8"))
+        choice = result["choices"][0]
+        return {
+            "message": choice["message"],
+            "finish_reason": choice.get("finish_reason", "stop"),
+        }
+
+    def _stream_chat_response(self, req):
+        with urllib.request.urlopen(req) as response:
+            for line in response:
+                if not line:
+                    continue
+                line = line.decode("utf-8").strip()
+                if not line.startswith("data: "):
+                    continue
+                data = line[6:]
+                if data == "[DONE]":
+                    return
+                try:
+                    event = json.loads(data)
+                except json.JSONDecodeError as exc:
+                    raise ValueError("Failed to parse chat stream response.") from exc
+                choices = event.get("choices", [])
+                if not choices:
+                    continue
+                chunk = choices[0].get("delta", {}).get("content")
+                if chunk:
+                    yield chunk
 
     def detect(
         self,
@@ -200,12 +271,15 @@ class CloudVL(VLM):
         image: Union[Image.Image, EncodedImage],
         object: str,
         settings: Optional[SamplingSettings] = None,
+        spatial_refs: Optional[list[SpatialRef]] = None,
     ) -> PointOutput:
         encoded_image = self.encode_image(image)
         payload = {
             "image_url": encoded_image.image_url,
             "object": object,
         }
+        if spatial_refs is not None:
+            payload["spatial_refs"] = spatial_refs
         if self.model is not None:
             payload["model"] = self.model
         if settings is not None:
