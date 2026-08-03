@@ -31,8 +31,8 @@ Photon local inference includes all models bundled with Kestrel 0.5:
 Use `md.photon_models()` to inspect the exact registered identifiers in the installed
 release. The returned client reports `model_id`, `tasks`, and
 `supports(task)` without requiring a Kestrel import.
-Existing `md.vl(local=True, ...)` calls remain supported and delegate to
-`md.photon(...)`.
+Existing `md.vl(local=True, model=..., ...)` calls remain supported and delegate
+to `md.photon(...)`.
 
 ## Installation
 
@@ -55,7 +55,7 @@ from PIL import Image
 model = md.vl(api_key="<your-api-key>")
 
 # Or initialize Photon local inference (NVIDIA GPU or Apple Silicon)
-model = md.photon()
+model = md.photon("moondream3-preview")
 
 # Load an image
 image = Image.open("path/to/image.jpg")
@@ -87,14 +87,15 @@ print(chat["message"]["content"])
 
 ```python
 model = md.vl(api_key="<your-api-key>")                        # Cloud
-model = md.photon()                                            # Photon with Moondream 3
+model = md.photon("moondream3-preview")                        # Photon with Moondream 3
 model = md.vl(api_key="<your-api-key>", model="moondream3-preview/ft_id@step")  # Finetune
 qwen = md.photon("Qwen/Qwen3.5-4B")
 gemma = md.photon("google/gemma-4-E2B-it")
 ```
 
 Photon clients share matching local engines. Call `model.close()` when an
-application is finished with a client, or use `with md.photon() as model:`
+application is finished with a client, or use
+`with md.photon("moondream3-preview") as model:`
 for deterministic GPU and worker cleanup.
 
 ### Methods

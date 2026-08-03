@@ -66,6 +66,24 @@ def test_vl_local_delegates_to_photon(monkeypatch):
     }
 
 
+def test_vl_local_requires_model():
+    try:
+        md.vl(local=True)
+    except TypeError as exc:
+        assert str(exc) == "vl(local=True) requires model=<model identifier>"
+    else:
+        raise AssertionError("local Photon inference accepted no model")
+
+
+def test_photon_requires_model():
+    try:
+        md.photon()
+    except TypeError as exc:
+        assert "model" in str(exc)
+    else:
+        raise AssertionError("Photon accepted no model")
+
+
 def test_photon_chat_preserves_model_reasoning_default():
     calls = []
 
@@ -108,7 +126,7 @@ def main(image_path: str):
         sys.exit(1)
 
     # Instantiate the client in local mode.
-    client = md.vl(local=True)
+    client = md.vl(local=True, model="moondream3-preview")
 
     # Test the caption method.
     try:

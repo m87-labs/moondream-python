@@ -221,8 +221,8 @@ class PhotonVL(VLM):
     def __init__(
         self,
         *,
+        model: str,
         api_key: Optional[str] = None,
-        model: str = "moondream3-preview",
         **runtime_config,
     ):
         base_model, self._adapter = _parse_model(model)
