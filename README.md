@@ -17,6 +17,23 @@ Moondream goes beyond the typical VLM "query" ability to include more visual fun
 
 Try it out on [Moondream's playground](https://moondream.ai/playground).
 
+## Photon Models
+
+Photon local inference includes all models bundled with Kestrel 0.5:
+
+| Family | Models |
+|--------|--------|
+| Moondream | Moondream 2, Moondream 3, Moondream 3.1 9B A2B |
+| Qwen 3.5 | 0.8B, 2B, 4B, 9B, 27B, and 35B-A3B; Base variants where published |
+| Qwen 3.6 | 27B and 35B-A3B; BF16 and FP8 checkpoints |
+| Gemma 4 | E2B, E4B, and 31B base/instruction variants |
+
+Use `md.photon_models()` to inspect the exact registered identifiers in the installed
+release. The returned client reports `model_id`, `tasks`, and
+`supports(task)` without requiring a Kestrel import.
+Existing `md.vl(local=True, ...)` calls remain supported and delegate to
+`md.photon(...)`.
+
 ## Installation
 
 ```bash
@@ -37,8 +54,8 @@ from PIL import Image
 # Initialize with Moondream Cloud
 model = md.vl(api_key="<your-api-key>")
 
-# Or initialize with local inference (Photon — NVIDIA GPU or Apple Silicon)
-model = md.vl(local=True)
+# Or initialize Photon local inference (NVIDIA GPU or Apple Silicon)
+model = md.photon()
 
 # Load an image
 image = Image.open("path/to/image.jpg")
@@ -70,12 +87,14 @@ print(chat["message"]["content"])
 
 ```python
 model = md.vl(api_key="<your-api-key>")                        # Cloud
-model = md.vl(local=True)                                      # Photon (local: NVIDIA GPU or Apple Silicon)
+model = md.photon()                                            # Photon with Moondream 3
 model = md.vl(api_key="<your-api-key>", model="moondream3-preview/ft_id@step")  # Finetune
+qwen = md.photon("Qwen/Qwen3.5-4B")
+gemma = md.photon("google/gemma-4-E2B-it")
 ```
 
 Photon clients share matching local engines. Call `model.close()` when an
-application is finished with a client, or use `with md.vl(local=True) as model:`
+application is finished with a client, or use `with md.photon() as model:`
 for deterministic GPU and worker cleanup.
 
 ### Methods

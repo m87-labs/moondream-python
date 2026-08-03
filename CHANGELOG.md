@@ -7,6 +7,8 @@
   supported NVIDIA GPUs, with the regular optimized path retained as a
   transparent fallback.
 - Added local inference support for Moondream 3.1 9B A2B.
+- Photon can now run every model bundled with Kestrel 0.5, including the
+  supported Qwen 3.5, Qwen 3.6, and Gemma 4 variants.
 - Improved responsiveness under large request bursts and made startup and
   out-of-memory failures safer for concurrent workloads.
 - Local sampling settings are now forwarded consistently, including

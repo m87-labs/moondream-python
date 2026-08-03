@@ -72,11 +72,12 @@ def _parse_model(model: str) -> tuple[str, Optional[str]]:
 
     "moondream3-preview" -> ("moondream3-preview", None)
     "moondream3-preview/ft_abc@1000" -> ("moondream3-preview", "ft_abc@1000")
+    "Qwen/Qwen3.5-4B" -> ("Qwen/Qwen3.5-4B", None)
     """
-    if "/" not in model:
-        return model, None
-    base, adapter = model.split("/", 1)
-    return base, adapter
+    base, separator, suffix = model.rpartition("/")
+    if separator and suffix.startswith("ft_"):
+        return base, suffix
+    return model, None
 
 
 def _build_settings(
@@ -233,6 +234,17 @@ class PhotonVL(VLM):
             return
         self._engine_key = None
         _release_engine(key)
+
+    @property
+    def model_id(self) -> str:
+        return self._model.model_id
+
+    @property
+    def tasks(self) -> tuple[str, ...]:
+        return self._model.tasks
+
+    def supports(self, task: str) -> bool:
+        return self._model.supports(task)
 
     # ------------------------------------------------------------------
     # Helpers

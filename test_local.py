@@ -2,6 +2,50 @@ import sys
 import os
 import moondream as md
 from PIL import Image
+from moondream.photon_vl import _parse_model
+
+
+def test_model_parser_preserves_registered_repository_ids():
+    assert _parse_model("Qwen/Qwen3.5-4B") == ("Qwen/Qwen3.5-4B", None)
+    assert _parse_model("google/gemma-4-E2B-it") == (
+        "google/gemma-4-E2B-it",
+        None,
+    )
+
+
+def test_model_parser_extracts_explicit_finetune_suffix():
+    assert _parse_model("moondream3-preview/ft_abc@1000") == (
+        "moondream3-preview",
+        "ft_abc@1000",
+    )
+
+
+def test_vl_local_delegates_to_photon(monkeypatch):
+    captured = {}
+
+    def fake_photon(model, *, api_key=None, **runtime_config):
+        captured.update(
+            model=model,
+            api_key=api_key,
+            runtime_config=runtime_config,
+        )
+        return "photon"
+
+    monkeypatch.setattr(md, "photon", fake_photon)
+
+    result = md.vl(
+        api_key="key",
+        local=True,
+        model="Qwen/Qwen3.5-4B",
+        max_batch_size=8,
+    )
+
+    assert result == "photon"
+    assert captured == {
+        "model": "Qwen/Qwen3.5-4B",
+        "api_key": "key",
+        "runtime_config": {"max_batch_size": 8},
+    }
 
 
 def main(image_path: str):
