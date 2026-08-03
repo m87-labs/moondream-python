@@ -127,7 +127,11 @@ def _shutdown_cached_engines() -> None:
         _stop_engine(engine, loop, thread, suppress_errors=True)
 
 
-atexit.register(_shutdown_cached_engines)
+# Engine shutdown may perform async DNS during its final telemetry flush.
+# CPython tears down the shared thread-pool executor before normal atexit
+# callbacks, so clean up before thread shutdown when that hook is available.
+_register_shutdown = getattr(threading, "_register_atexit", atexit.register)
+_register_shutdown(_shutdown_cached_engines)
 
 
 def _get_or_create_engine(
