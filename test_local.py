@@ -1,8 +1,11 @@
 import sys
 import os
+import asyncio
+from types import SimpleNamespace
+
 import moondream as md
 from PIL import Image
-from moondream.photon_vl import _parse_model
+from moondream.photon_vl import PhotonVL, _parse_model
 
 
 def test_model_parser_preserves_registered_repository_ids():
@@ -46,6 +49,36 @@ def test_vl_local_delegates_to_photon(monkeypatch):
         "api_key": "key",
         "runtime_config": {"max_batch_size": 8},
     }
+
+
+def test_photon_chat_preserves_model_reasoning_default():
+    calls = []
+
+    class FakeModel:
+        async def chat(self, **prompt):
+            calls.append(prompt)
+            return SimpleNamespace(
+                output={
+                    "message": {"role": "assistant", "content": "answer"},
+                    "finish_reason": None,
+                },
+                finish_reason=None,
+            )
+
+    client = object.__new__(PhotonVL)
+    client._adapter = None
+    client._model = FakeModel()
+    client._run = asyncio.run
+
+    result = client.chat([{"role": "user", "content": "question"}])
+    client.chat(
+        [{"role": "user", "content": "question"}],
+        reasoning=False,
+    )
+
+    assert "reasoning" not in calls[0]
+    assert calls[1]["reasoning"] is False
+    assert result["finish_reason"] == "stop"
 
 
 def main(image_path: str):

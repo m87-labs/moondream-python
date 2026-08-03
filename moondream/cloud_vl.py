@@ -172,14 +172,15 @@ class CloudVL(VLM):
         messages: list[ChatMessage],
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
-        reasoning: bool = False,
+        reasoning: Optional[bool] = None,
     ) -> ChatOutput:
         payload = {
             "model": self.model or "moondream3-preview",
             "messages": messages,
             "stream": stream,
-            "reasoning": reasoning,
         }
+        if reasoning is not None:
+            payload["reasoning"] = reasoning
         if settings is not None:
             if "temperature" in settings:
                 payload["temperature"] = settings["temperature"]
@@ -208,7 +209,7 @@ class CloudVL(VLM):
         choice = result["choices"][0]
         return {
             "message": choice["message"],
-            "finish_reason": choice.get("finish_reason", "stop"),
+            "finish_reason": choice.get("finish_reason") or "stop",
         }
 
     def _stream_chat_response(self, req):

@@ -55,20 +55,23 @@ QueryOutput = TypedDict(
     total=False
 )
 
-ChatMessage = TypedDict(
-    "ChatMessage",
-    {
-        "role": Literal["system", "user", "assistant"],
-        "content": object,
-        "reasoning": str,
-    },
-    total=False,
-)
+class ChatMessage(TypedDict):
+    role: Literal["system", "user", "assistant"]
+    content: object
+
+
+class ChatReasoningDetails(TypedDict, total=False):
+    grounding: List[ReasoningGrounding]
+
+
+class ChatResponseMessage(ChatMessage, total=False):
+    reasoning: str
+    reasoning_details: ChatReasoningDetails
 
 ChatOutput = TypedDict(
     "ChatOutput",
     {
-        "message": Union[ChatMessage, Generator[str, None, None]],
+        "message": Union[ChatResponseMessage, Generator[str, None, None]],
         "finish_reason": str,
     },
     total=False,
@@ -356,7 +359,7 @@ class VLM(ABC):
         messages: List[ChatMessage],
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
-        reasoning: bool = False,
+        reasoning: Optional[bool] = None,
     ) -> ChatOutput:
         """Continue an OpenAI-style multi-turn conversation."""
 

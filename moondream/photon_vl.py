@@ -185,7 +185,11 @@ def _get_or_create_engine(
             _engine_cache[key] = (engine, loop, thread, 1)
 
     if loser is not None:
-        _stop_engine(*loser)
+        try:
+            _stop_engine(*loser)
+        except Exception:
+            _release_engine(key)
+            raise
         return winner_engine, winner_loop, winner_thread, key
 
     return engine, loop, thread, key
@@ -229,10 +233,11 @@ class PhotonVL(VLM):
 
     def close(self) -> None:
         """Release this client's reference to its shared local engine."""
-        key = self._engine_key
-        if key is None:
-            return
-        self._engine_key = None
+        with _cache_lock:
+            key = self._engine_key
+            if key is None:
+                return
+            self._engine_key = None
         _release_engine(key)
 
     @property
@@ -421,32 +426,30 @@ class PhotonVL(VLM):
         messages: List[ChatMessage],
         stream: bool = False,
         settings: Optional[SamplingSettings] = None,
-        reasoning: bool = False,
+        reasoning: Optional[bool] = None,
     ) -> ChatOutput:
+        prompt: dict[str, object] = {
+            "messages": messages,
+            "stream": stream,
+            "settings": self._settings(settings),
+        }
+        if reasoning is not None:
+            prompt["reasoning"] = reasoning
+
         if stream:
             return {
                 "message": self._stream_to_generator(
-                    self._model.chat(
-                        messages=messages,
-                        reasoning=reasoning,
-                        stream=True,
-                        settings=self._settings(settings),
-                    )
+                    self._model.chat(**prompt)
                 )
             }
 
-        result = self._run(
-            self._model.chat(
-                messages=messages,
-                reasoning=reasoning,
-                stream=False,
-                settings=self._settings(settings),
-            )
-        )
+        result = self._run(self._model.chat(**prompt))
         return {
             "message": result.output["message"],
-            "finish_reason": result.output.get(
-                "finish_reason", result.finish_reason
+            "finish_reason": (
+                result.output.get("finish_reason")
+                or result.finish_reason
+                or "stop"
             ),
         }
 

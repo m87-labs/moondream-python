@@ -142,10 +142,11 @@ for chunk in model.query(image, "What's in this image?", stream=True)["answer"]:
 
 ---
 
-#### `chat(messages, stream=False, reasoning=False)`
+#### `chat(messages, stream=False, reasoning=None)`
 
 Continue an OpenAI-style multi-turn conversation. Message content can be text
-or a list of `text` and base64 `image_url` parts.
+or a list of `text` and base64 `image_url` parts. When `reasoning` is omitted,
+the selected model or Cloud service supplies its default.
 
 ```python
 result = model.chat([
