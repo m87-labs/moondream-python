@@ -7,8 +7,9 @@ import json
 import os
 import queue
 import threading
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from io import BytesIO
-from typing import Generator, List, Literal, Optional, Union
+from typing import Any, Generator, Iterator, List, Literal, Mapping, Optional, Union
 
 import torch
 from PIL import Image
@@ -82,7 +83,7 @@ def _parse_model(model: str) -> tuple[str, Optional[str]]:
 
 
 def _build_settings(
-    settings: Optional[SamplingSettings] = None,
+    settings: Optional[Mapping[str, object]] = None,
     adapter: Optional[str] = None,
 ) -> Optional[dict]:
     """Map moondream SamplingSettings + adapter to kestrel settings dict."""
@@ -90,6 +91,244 @@ def _build_settings(
     if adapter is not None:
         out["adapter"] = adapter
     return out if out else None
+
+
+def _public_output(value: Any) -> Any:
+    output = getattr(value, "output", None)
+    return dict(output) if isinstance(output, dict) else value
+
+
+def _close_unsubmitted(awaitable: Any) -> None:
+    closer = getattr(awaitable, "close", None)
+    if callable(closer):
+        closer()
+
+
+def _submit_to_loop(
+    awaitable: Any,
+    loop: asyncio.AbstractEventLoop,
+    unavailable: str,
+):
+    started = threading.Event()
+
+    async def tracked():
+        started.set()
+        return await awaitable
+
+    runner = tracked()
+    if not loop.is_running():
+        runner.close()
+        _close_unsubmitted(awaitable)
+        raise RuntimeError(unavailable)
+    try:
+        pending = asyncio.run_coroutine_threadsafe(runner, loop)
+    except RuntimeError as exc:
+        runner.close()
+        _close_unsubmitted(awaitable)
+        raise RuntimeError(unavailable) from exc
+    return pending, started, runner
+
+
+def _abandon_unstarted(
+    pending: Any,
+    started: threading.Event,
+    runner: Any,
+    awaitable: Any,
+) -> None:
+    pending.cancel()
+    if not started.is_set():
+        runner.close()
+        _close_unsubmitted(awaitable)
+
+
+def _wait_on_loop(
+    awaitable: Any,
+    loop: asyncio.AbstractEventLoop,
+    unavailable: str,
+) -> Any:
+    pending, started, runner = _submit_to_loop(awaitable, loop, unavailable)
+    while True:
+        try:
+            return pending.result(timeout=0.05)
+        except FutureTimeoutError:
+            if pending.done():
+                return pending.result()
+            if not loop.is_running():
+                _abandon_unstarted(pending, started, runner, awaitable)
+                raise RuntimeError(unavailable)
+
+
+async def _await_on_loop(
+    awaitable: Any,
+    loop: asyncio.AbstractEventLoop,
+    unavailable: str,
+) -> Any:
+    pending, started, runner = _submit_to_loop(awaitable, loop, unavailable)
+    wrapped = asyncio.wrap_future(pending)
+    try:
+        while True:
+            try:
+                return await asyncio.wait_for(
+                    asyncio.shield(wrapped),
+                    timeout=0.05,
+                )
+            except asyncio.TimeoutError:
+                if wrapped.done():
+                    return wrapped.result()
+                if not loop.is_running():
+                    _abandon_unstarted(pending, started, runner, awaitable)
+                    raise RuntimeError(unavailable)
+    except asyncio.CancelledError:
+        pending.cancel()
+        raise
+
+
+def _bridge_async_iterator(source: Any, source_loop: asyncio.AbstractEventLoop):
+    iterator = source.__aiter__()
+
+    async def proxy():
+        try:
+            while True:
+                async def next_chunk():
+                    return await iterator.__anext__()
+
+                pending = asyncio.run_coroutine_threadsafe(next_chunk(), source_loop)
+                try:
+                    yield await asyncio.wrap_future(pending)
+                except StopAsyncIteration:
+                    return
+        finally:
+            closer = getattr(iterator, "aclose", None)
+            if callable(closer):
+                async def close_source():
+                    await closer()
+
+                await asyncio.wrap_future(
+                    asyncio.run_coroutine_threadsafe(close_source(), source_loop)
+                )
+
+    return proxy()
+
+
+class PhotonStream(Iterator[dict[str, object]]):
+    """Synchronous or asynchronous view of a Photon model stream."""
+
+    def __init__(self, stream: Any, loop: asyncio.AbstractEventLoop) -> None:
+        self._stream = stream
+        self._loop = loop
+        self._finished = False
+
+    def _wait(self, awaitable):
+        return _wait_on_loop(
+            awaitable,
+            self._loop,
+            "Photon stream is unavailable because its engine is closed",
+        )
+
+    async def _await(self, awaitable):
+        return await _await_on_loop(
+            awaitable,
+            self._loop,
+            "Photon stream is unavailable because its engine is closed",
+        )
+
+    @staticmethod
+    def _update_output(update: Any) -> dict[str, object]:
+        output = getattr(update, "output", None)
+        if isinstance(output, dict):
+            return dict(output)
+        text = getattr(update, "text", None)
+        if isinstance(text, str):
+            return {"text": text}
+        raise TypeError("Photon stream update has no public output")
+
+    def __iter__(self) -> "PhotonStream":
+        return self
+
+    def __next__(self) -> dict[str, object]:
+        if self._finished:
+            raise StopIteration
+        try:
+            update = self._wait(self._stream.__anext__())
+        except StopAsyncIteration:
+            self._finished = True
+            raise StopIteration from None
+
+        return self._update_output(update)
+
+    def __aiter__(self) -> "PhotonStream":
+        return self
+
+    async def __anext__(self) -> dict[str, object]:
+        if self._finished:
+            raise StopAsyncIteration
+        try:
+            update = await self._await(self._stream.__anext__())
+        except StopAsyncIteration:
+            self._finished = True
+            raise
+        return self._update_output(update)
+
+    def updates(self) -> "PhotonStream":
+        return self
+
+    def send(self, **chunk: Any) -> None:
+        sender = getattr(self._stream, "send", None)
+        if not callable(sender):
+            raise TypeError("this Photon stream does not accept input chunks")
+        self._wait(sender(**chunk))
+
+    async def asend(self, **chunk: Any) -> None:
+        sender = getattr(self._stream, "send", None)
+        if not callable(sender):
+            raise TypeError("this Photon stream does not accept input chunks")
+        await self._await(sender(**chunk))
+
+    def result(self) -> dict[str, object]:
+        result = _public_output(self._wait(self._stream.result()))
+        if not isinstance(result, dict):
+            raise TypeError("Photon stream returned no public result")
+        return result
+
+    async def aresult(self) -> dict[str, object]:
+        result = _public_output(await self._await(self._stream.result()))
+        if not isinstance(result, dict):
+            raise TypeError("Photon stream returned no public result")
+        return result
+
+    def close(self) -> Optional[dict[str, object]]:
+        closer = getattr(self._stream, "close", None)
+        if not callable(closer):
+            closer = getattr(self._stream, "aclose", None)
+        if not callable(closer):
+            self._finished = True
+            return None
+        result = _public_output(self._wait(closer()))
+        self._finished = True
+        return result if isinstance(result, dict) else None
+
+    async def aclose(self) -> Optional[dict[str, object]]:
+        closer = getattr(self._stream, "close", None)
+        if not callable(closer):
+            closer = getattr(self._stream, "aclose", None)
+        if not callable(closer):
+            self._finished = True
+            return None
+        result = _public_output(await self._await(closer()))
+        self._finished = True
+        return result if isinstance(result, dict) else None
+
+    def __enter__(self) -> "PhotonStream":
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        self.close()
+
+    async def __aenter__(self) -> "PhotonStream":
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback) -> None:
+        await self.aclose()
 
 
 # ------------------------------------------------------------------
@@ -216,7 +455,7 @@ def _release_engine(key: tuple) -> None:
 
 
 class PhotonVL(VLM):
-    """Local GPU inference via kestrel's InferenceEngine."""
+    """Client for local Photon model capabilities."""
 
     def __init__(
         self,
@@ -256,13 +495,107 @@ class PhotonVL(VLM):
     def supports(self, task: str) -> bool:
         return self._model.supports(task)
 
+    def _prepare_invocation(
+        self,
+        task: str,
+        prompt: Mapping[str, Any],
+    ) -> tuple[Any, dict[str, Any]]:
+        if not isinstance(task, str) or not task or task.startswith("_"):
+            raise ValueError("task must be a public Photon capability name")
+        if not self.supports(task):
+            raise ValueError(
+                f"Model {self.model_id!r} does not support {task!r} "
+                f"(supports: {', '.join(self.tasks) or 'none'})"
+            )
+        capability = getattr(self._model, task, None)
+        if not callable(capability):
+            raise RuntimeError(
+                f"Photon advertises {task!r} but its client has no matching verb"
+            )
+
+        owned_prompt = dict(prompt)
+        if self._adapter is not None:
+            owned_prompt["settings"] = _build_settings(
+                owned_prompt.get("settings"),
+                self._adapter,
+            )
+        return capability, owned_prompt
+
+    def invoke(self, task: str, /, **prompt: Any) -> Any:
+        """Invoke any capability advertised by this Photon model."""
+        capability, owned_prompt = self._prepare_invocation(task, prompt)
+        return self._adapt_result(self._run(capability(**owned_prompt)))
+
+    def run(self, task: str, inputs: Any) -> Any:
+        """Run a task on a single-pass Photon model."""
+        return _public_output(self._run(self._model.run(task, inputs)))
+
+    def stream(self, task: str, /, **initial_prompt: Any) -> PhotonStream:
+        """Open a caller-driven session on a stateful streaming Photon model."""
+        stream = self._run(self._model.stream(task, **initial_prompt))
+        return PhotonStream(stream, self._loop)
+
+    def transcribe(self, **prompt: Any) -> Union[dict[str, object], PhotonStream]:
+        """Transcribe or translate audio with a speech-capable Photon model."""
+        owned_prompt = dict(prompt)
+        audio = owned_prompt.get("audio")
+        if callable(getattr(audio, "__aiter__", None)):
+            try:
+                source_loop = asyncio.get_running_loop()
+            except RuntimeError:
+                source_loop = None
+            if source_loop is not None and source_loop is not self._loop:
+                if not owned_prompt.get("stream", False):
+                    raise RuntimeError(
+                        "async live audio with stream=False must use "
+                        "await speech.atranscribe(...)"
+                    )
+                owned_prompt["audio"] = _bridge_async_iterator(audio, source_loop)
+        result = self.invoke("transcribe", **owned_prompt)
+        if not isinstance(result, (dict, PhotonStream)):
+            raise TypeError("Photon transcription returned an unsupported result")
+        return result
+
+    async def atranscribe(
+        self,
+        **prompt: Any,
+    ) -> Union[dict[str, object], PhotonStream]:
+        """Asynchronously transcribe audio without blocking the caller loop."""
+        owned_prompt = dict(prompt)
+        audio = owned_prompt.get("audio")
+        if callable(getattr(audio, "__aiter__", None)):
+            source_loop = asyncio.get_running_loop()
+            if source_loop is not self._loop:
+                owned_prompt["audio"] = _bridge_async_iterator(audio, source_loop)
+        capability, owned_prompt = self._prepare_invocation(
+            "transcribe",
+            owned_prompt,
+        )
+        result = self._adapt_result(
+            await self._arun(capability(**owned_prompt))
+        )
+        if not isinstance(result, (dict, PhotonStream)):
+            raise TypeError("Photon transcription returned an unsupported result")
+        return result
+
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
 
     def _run(self, coro):
         """Run an async coroutine on the background loop and return result."""
-        return asyncio.run_coroutine_threadsafe(coro, self._loop).result()
+        return _wait_on_loop(coro, self._loop, "Photon client is closed")
+
+    async def _arun(self, coro):
+        """Run a coroutine on the Photon loop without blocking the caller loop."""
+        return await _await_on_loop(coro, self._loop, "Photon client is closed")
+
+    def _adapt_result(self, value: Any) -> Any:
+        if callable(getattr(value, "__anext__", None)) and callable(
+            getattr(value, "result", None)
+        ):
+            return PhotonStream(value, self._loop)
+        return _public_output(value)
 
     def _stream_to_generator(self, coro) -> Generator[str, None, None]:
         """Bridge an async EngineStream into a sync generator of text chunks."""

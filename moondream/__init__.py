@@ -23,7 +23,7 @@ def photon(
     api_key: Optional[str] = None,
     **runtime_config,
 ):
-    """Create a local Photon model backed by Kestrel's bundled runtime."""
+    """Create a local Photon model with its complete capability surface."""
     from .photon_vl import PhotonVL
 
     return PhotonVL(
@@ -49,7 +49,7 @@ def vl(
         local (bool): If True, delegate to ``photon()`` instead of the Cloud API.
         model (str): Model identifier. Required for local Photon inference.
         **kwargs: Additional arguments forwarded to the selected backend. In local mode,
-            arguments are passed directly to Kestrel's ``RuntimeConfig``.
+            arguments configure the Photon runtime.
 
     Returns:
         An instance of CloudVL or PhotonVL.

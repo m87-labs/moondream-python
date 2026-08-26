@@ -1,10 +1,10 @@
 # Moondream Python Client Library
 
-Official Python client library for Moondream, a fast multi-function VLM. This client can target [Moondream Cloud](https://moondream.ai/cloud) or run locally via Photon — on NVIDIA GPUs (Linux x86_64 / aarch64 or Windows) or Apple Silicon Macs.
+Official Python interface for [Moondream Cloud](https://moondream.ai/cloud) and Photon local inference on NVIDIA GPUs (Linux x86_64 / aarch64 or Windows) or Apple Silicon Macs.
 
 ## Capabilities
 
-Moondream goes beyond the typical VLM "query" ability to include more visual functions:
+Photon exposes each selected model's capabilities through one model-bound client:
 
 | Method | Description |
 |--------|-------------|
@@ -14,12 +14,13 @@ Moondream goes beyond the typical VLM "query" ability to include more visual fun
 | `detect` | Find bounding boxes around objects in images |
 | `point` | Identify the center location of specified objects |
 | `segment` | Generate an SVG path segmentation mask for objects |
+| `transcribe` | Transcribe or translate audio, including files and live PCM streams |
 
 Try it out on [Moondream's playground](https://moondream.ai/playground).
 
 ## Photon Models
 
-Photon local inference includes all models bundled with Kestrel 0.5:
+Photon 2.1 includes these local model families:
 
 | Family | Models |
 |--------|--------|
@@ -27,10 +28,11 @@ Photon local inference includes all models bundled with Kestrel 0.5:
 | Qwen 3.5 | 0.8B, 2B, 4B, 9B, 27B, and 35B-A3B; Base variants where published |
 | Qwen 3.6 | 27B and 35B-A3B; BF16 and FP8 checkpoints |
 | Gemma 4 | E2B, E4B, and 31B base/instruction variants |
+| Whisper | Whisper large-v3-turbo transcription and English translation |
 
 Use `md.photon_models()` to inspect the exact registered identifiers in the installed
 release. The returned client reports `model_id`, `tasks`, and
-`supports(task)` without requiring a Kestrel import.
+`supports(task)` without importing the underlying runtime.
 Existing `md.vl(local=True, model=..., ...)` calls remain supported and delegate
 to `md.photon(...)`.
 
@@ -79,6 +81,16 @@ chat = model.chat([
     {"role": "user", "content": "What is my name?"},
 ])
 print(chat["message"]["content"])
+
+# Photon speech transcription uses the same model-bound interface
+from pathlib import Path
+
+with md.photon("openai/whisper-large-v3-turbo") as speech:
+    transcript = speech.transcribe(
+        audio=Path("meeting.m4a"),
+        timestamps="word",
+    )
+    print(transcript["text"])
 ```
 
 ## API Reference
@@ -91,6 +103,7 @@ model = md.photon("moondream3.1-9B-A2B")                       # Photon with Moo
 model = md.vl(api_key="<your-api-key>", model="moondream3-preview/ft_id@step")  # Finetune
 qwen = md.photon("Qwen/Qwen3.5-4B")
 gemma = md.photon("google/gemma-4-E2B-it")
+speech = md.photon("openai/whisper-large-v3-turbo")
 ```
 
 Photon clients share matching local engines. Call `model.close()` when an
@@ -246,6 +259,68 @@ Pre-encode an image for reuse across multiple calls.
 ```python
 encoded = model.encode_image(image)
 ```
+
+---
+
+#### `transcribe(audio=..., stream=False, **options)`
+
+Transcribe speech in its source language or translate it to English. Photon
+accepts encoded file paths or bytes, bounded binary streams, raw mono PCM, and
+asynchronous live PCM iterators. Live chunks must be nonempty one-dimensional
+NumPy arrays or CPU Torch tensors containing mono PCM. Options pass directly to
+the selected model.
+
+```python
+from pathlib import Path
+
+speech = md.photon("openai/whisper-large-v3-turbo")
+result = speech.transcribe(
+    audio=Path("interview.mp3"),
+    timestamps="word",
+)
+print(result["text"])
+
+# Progressive updates are replaceable transcript snapshots, not token deltas.
+updates = speech.transcribe(
+    audio=Path("meeting.m4a"),
+    timestamps="segment",
+    stream=True,
+)
+for update in updates:
+    print(update["text"])
+final = updates.result()
+speech.close()
+```
+
+Live PCM producers remain asynchronous end to end through `atranscribe`:
+
+```python
+import asyncio
+
+
+async def microphone_chunks():
+    while (chunk := await microphone.read()) is not None:
+        yield chunk
+
+
+async def main():
+    with md.photon("openai/whisper-large-v3-turbo") as speech:
+        updates = await speech.atranscribe(
+            audio=microphone_chunks(),
+            sample_rate=48_000,
+            stream=True,
+        )
+        async for update in updates:
+            print(update["text"])
+        final = await updates.aresult()
+
+
+asyncio.run(main())
+```
+
+Set `task="translate"` for English translation. Other options include
+`language`, `sample_rate`, `initial_prompt`, `condition_on_previous_text`,
+`clip_start_seconds`, `clip_end_seconds`, and model sampling `settings`.
 
 ### Types
 

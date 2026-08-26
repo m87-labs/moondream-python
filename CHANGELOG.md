@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.1.0
+
+- Added production NVIDIA B200 support to Photon, with expanded precompiled
+  execution for Qwen 3.5, Qwen 3.6, and Gemma 4 models.
+- Added Photon transcription and English translation with
+  `openai/whisper-large-v3-turbo`, including long-form audio files, live PCM
+  streams, and segment or word timestamps.
+- Photon model clients now expose the selected model's complete capability
+  surface through one model-bound bridge, including progressive and
+  caller-driven streams.
+- Corrected reasoning-enabled Gemma 4 queries so direct answers are returned
+  as answers and reasoning channel headers do not appear in customer-visible
+  output.
+- Pinned the Photon runtime exactly so every `moondream 2.1.0` installation
+  uses the engine and bundled-kernel release validated with this client.
+
+See the underlying engine [0.6.1](https://github.com/m87-labs/kestrel/blob/main/CHANGELOG.md#061--2026-08-26)
+and [0.6.0](https://github.com/m87-labs/kestrel/blob/main/CHANGELOG.md#060--2026-08-26)
+release notes for the complete engine changes.
+
 ## 2.0.1
 
 - Fixed Photon local inference for finetuned checkpoints whose IDs use the
