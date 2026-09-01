@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.1.1
+
+- Added Gemma 4 26B-A4B base and instruction-tuned checkpoints to Photon.
+- Photon transcription includes Whisper large-v3-turbo for transcription and
+  English translation, and now adds Qwen3-ASR 0.6B and 1.7B and Parakeet TDT
+  0.6B v3. The speech models support files and live PCM, long-form audio,
+  progressive results, language and prompt controls, and timestamps or forced
+  alignment where the selected model supports them.
+- Reduced peak host memory while loading larger Qwen, Gemma, and Moondream 3
+  checkpoints, and expanded precompiled H100 and B200 execution for the new
+  model workloads.
+- Pinned the Photon runtime exactly so every `moondream 2.1.1` installation
+  uses the engine and bundled-kernel release validated with this client.
+
+See the underlying engine [0.7.0](https://github.com/m87-labs/kestrel/blob/main/CHANGELOG.md#070--2026-09-01)
+release notes for the complete engine changes.
+
 ## 2.1.0
 
 - Added production NVIDIA B200 support to Photon, with expanded precompiled

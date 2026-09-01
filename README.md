@@ -27,8 +27,10 @@ Photon 2.1 includes these local model families:
 | Moondream | Moondream 2, Moondream 3, Moondream 3.1 9B A2B |
 | Qwen 3.5 | 0.8B, 2B, 4B, 9B, 27B, and 35B-A3B; Base variants where published |
 | Qwen 3.6 | 27B and 35B-A3B; BF16 and FP8 checkpoints |
-| Gemma 4 | E2B, E4B, and 31B base/instruction variants |
+| Gemma 4 | E2B, E4B, 26B-A4B, and 31B base/instruction variants |
 | Whisper | Whisper large-v3-turbo transcription and English translation |
+| Qwen3-ASR | 0.6B and 1.7B transcription and forced alignment |
+| Parakeet TDT | 0.6B v3 transcription |
 
 Use `md.photon_models()` to inspect the exact registered identifiers in the installed
 release. The returned client reports `model_id`, `tasks`, and
