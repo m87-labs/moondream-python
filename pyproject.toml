@@ -8,6 +8,7 @@ version = "2.1.1"
 description = "Official Python interface for Moondream Cloud and Photon local inference."
 authors = [ "M87 Labs <contact@moondream.ai>",]
 readme = "README.md"
+include = ["CHANGELOG.md"]
 [[tool.poetry.packages]]
 include = "moondream"
 from = "."
