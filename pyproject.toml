@@ -20,4 +20,4 @@ reportMissingParameterType = false
 [tool.poetry.dependencies]
 python = ">=3.10,<3.15"
 pillow = ">=10.4.0"
-kestrel = "0.6.1"
+kestrel = "0.7.0"
