@@ -9,8 +9,6 @@
 - Added accelerated Whisper transcription on L4 and RTX 3090.
 - Reduced transcription latency and host overhead for Qwen ASR and Parakeet,
   including one-at-a-time workloads.
-- A standard `pip install moondream==2.2.0` now selects the matching optimized
-  Photon runtime and GPU kernels automatically.
 
 See the underlying engine [0.7.1](https://github.com/m87-labs/kestrel/blob/main/CHANGELOG.md#071--2026-09-09)
 release notes for the complete engine changes.
