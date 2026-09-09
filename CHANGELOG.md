@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.2.0
+
+- Photon's optimized local inference now spans NVIDIA Ampere, Ada, Hopper, and
+  Blackwell GPUs, including A10/A10G, A100, RTX 3090, L4, H100, B200, and RTX
+  PRO 6000 Blackwell.
+- Improved local response latency and throughput for Moondream and Qwen models.
+- Added accelerated Whisper transcription on L4 and RTX 3090.
+- Reduced transcription latency and host overhead for Qwen ASR and Parakeet,
+  including one-at-a-time workloads.
+- A standard `pip install moondream==2.2.0` now selects the matching optimized
+  Photon runtime and GPU kernels automatically.
+
+See the underlying engine [0.7.1](https://github.com/m87-labs/kestrel/blob/main/CHANGELOG.md#071--2026-09-09)
+release notes for the complete engine changes.
+
 ## 2.1.1
 
 - Added Gemma 4 26B-A4B base and instruction-tuned checkpoints to Photon.
