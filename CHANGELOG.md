@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.3.0
+
+- Upgraded Photon local inference to `kestrel 0.7.2`.
+- Expanded fast Qwen 3.5 and Qwen 3.6 35B-A3B inference across NVIDIA
+  Ampere, Hopper, and Blackwell GPUs, including changing request concurrency.
+- Kept block-scaled Qwen prefill projections on the packed GPU path.
+- Corrected multimodal Qwen chat token accounting for conversations with
+  image inputs.
+
+See the underlying engine [0.7.2](https://github.com/m87-labs/kestrel/blob/main/CHANGELOG.md#072--2026-09-13)
+release notes for the complete engine changes.
+
 ## 2.2.0
 
 - Photon's optimized local inference now spans NVIDIA Ampere, Ada, Hopper, and
