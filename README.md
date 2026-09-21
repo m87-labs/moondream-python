@@ -30,7 +30,7 @@ Photon 2.1 includes these local model families:
 | Gemma 4 | E2B, E4B, 26B-A4B, and 31B base/instruction variants |
 | Whisper | Whisper large-v3-turbo transcription and English translation |
 | Qwen3-ASR | 0.6B and 1.7B transcription and forced alignment |
-| Parakeet TDT | 0.6B v3 transcription; [parakeet-redux](https://huggingface.co/moondream/parakeet-redux), its ternary version for CPUs and Apple silicon |
+| Parakeet TDT | 0.6B v3 transcription; [parakeet-redux](https://huggingface.co/moondream/parakeet-redux), its ternary version for CPUs, Apple silicon, and CUDA |
 
 Use `md.photon_models()` to inspect the exact registered identifiers in the installed
 release. The returned client reports `model_id`, `tasks`, and
@@ -329,7 +329,7 @@ Set `task="translate"` for English translation. Other options include
 `clip_start_seconds`, `clip_end_seconds`, and model sampling `settings`.
 
 `moondream/parakeet-redux` is the ternary Parakeet: 178 MB of weights, 25
-languages, and the fastest path on a CPU or an Apple GPU. It takes
+languages, and local inference on CPUs, Apple silicon, and CUDA. It takes
 `timestamps` of `"none"`, `"segment"`, `"word"` or `"character"` and no
 language or prompt options.
 

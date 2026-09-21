@@ -1,13 +1,8 @@
 # Changelog
 
-## Unreleased
+## 2.4.0
 
-- Photon falls back to the CPU when neither CUDA nor Apple silicon is
-  available, instead of refusing to start; `device=` still overrides.
-- `OMP_WAIT_POLICY` defaults to `passive` before torch loads, so the CPU
-  kernels' thread pool is not starved by idle OpenMP workers.
-- Documented `moondream/parakeet-redux`, the ternary Parakeet for CPUs and
-  Apple silicon.
+- Added fast, memory-efficient local transcription with `moondream/parakeet-redux` on CPUs, Apple silicon, and CUDA, including pause-aware processing for long audio.
 
 ## 2.3.0
 

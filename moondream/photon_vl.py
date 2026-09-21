@@ -6,9 +6,7 @@ import base64
 import json
 import os
 
-# Set before torch loads: libgomp reads it once at load. Kestrel's CPU kernels run the encoder on their own
-# thread pool, and torch's idle OpenMP workers would otherwise spin on the same cores (a third of the speed at
-# 4 cores, four fifths at 8, measured on parakeet-redux). A value already in the environment wins.
+# Set before torch loads so idle OpenMP workers do not compete with Kestrel's CPU kernels.
 os.environ.setdefault("OMP_WAIT_POLICY", "passive")
 
 import queue
