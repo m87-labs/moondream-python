@@ -5,6 +5,10 @@ import atexit
 import base64
 import json
 import os
+
+# Set before torch loads so idle OpenMP workers do not compete with Kestrel's CPU kernels.
+os.environ.setdefault("OMP_WAIT_POLICY", "passive")
+
 import queue
 import threading
 from concurrent.futures import TimeoutError as FutureTimeoutError
@@ -32,7 +36,12 @@ from .types import (
 
 
 def _default_photon_device() -> str:
-    """Choose the local Photon device when the caller does not specify one."""
+    """Choose the local Photon device when the caller does not specify one.
+
+    CUDA when it is available, Apple silicon's MPS when it is, and the CPU
+    otherwise. Models that do not run on the CPU report that themselves when
+    the engine starts; passing ``device=`` overrides the choice.
+    """
     if torch.cuda.is_available():
         return "cuda"
     if torch.backends.cuda.is_built():
@@ -42,10 +51,7 @@ def _default_photon_device() -> str:
         return "cuda"
     if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
         return "mps"
-    raise RuntimeError(
-        "Photon local inference needs a supported accelerator, but neither "
-        "CUDA nor Apple Silicon MPS is available in this Python environment."
-    )
+    return "cpu"
 
 
 def _image_to_bytes(image: Union[Image.Image, EncodedImage]) -> bytes:

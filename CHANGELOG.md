@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.4.0
+
+- Added fast, memory-efficient local transcription with `moondream/parakeet-redux` on CPUs, Apple silicon, and CUDA, including pause-aware processing for long audio.
+
 ## 2.3.0
 
 - Upgraded Photon local inference to `kestrel 0.7.2`.

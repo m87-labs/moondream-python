@@ -30,7 +30,7 @@ Photon 2.1 includes these local model families:
 | Gemma 4 | E2B, E4B, 26B-A4B, and 31B base/instruction variants |
 | Whisper | Whisper large-v3-turbo transcription and English translation |
 | Qwen3-ASR | 0.6B and 1.7B transcription and forced alignment |
-| Parakeet TDT | 0.6B v3 transcription |
+| Parakeet TDT | 0.6B v3 transcription; [parakeet-redux](https://huggingface.co/moondream/parakeet-redux), its ternary version for CPUs, Apple silicon, and CUDA |
 
 Use `md.photon_models()` to inspect the exact registered identifiers in the installed
 release. The returned client reports `model_id`, `tasks`, and
@@ -106,7 +106,11 @@ model = md.vl(api_key="<your-api-key>", model="moondream3-preview/ft_id@step")  
 qwen = md.photon("Qwen/Qwen3.5-4B")
 gemma = md.photon("google/gemma-4-E2B-it")
 speech = md.photon("openai/whisper-large-v3-turbo")
+speech = md.photon("moondream/parakeet-redux")               # CPU, Apple silicon or CUDA
 ```
+
+Photon picks CUDA when it is available, then Apple silicon, then the CPU; pass
+`device="cpu"`, `"mps"` or `"cuda"` to choose.
 
 Photon clients share matching local engines. Call `model.close()` when an
 application is finished with a client, or use
@@ -323,6 +327,16 @@ asyncio.run(main())
 Set `task="translate"` for English translation. Other options include
 `language`, `sample_rate`, `initial_prompt`, `condition_on_previous_text`,
 `clip_start_seconds`, `clip_end_seconds`, and model sampling `settings`.
+
+`moondream/parakeet-redux` is the ternary Parakeet: 178 MB of weights, 25
+languages, and local inference on CPUs, Apple silicon, and CUDA. It takes
+`timestamps` of `"none"`, `"segment"`, `"word"` or `"character"` and no
+language or prompt options.
+
+```python
+with md.photon("moondream/parakeet-redux") as speech:
+    print(speech.transcribe(audio="meeting.mp3")["text"])
+```
 
 ### Types
 
