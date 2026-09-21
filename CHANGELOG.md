@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Photon falls back to the CPU when neither CUDA nor Apple silicon is
+  available, instead of refusing to start; `device=` still overrides.
+- `OMP_WAIT_POLICY` defaults to `passive` before torch loads, so the CPU
+  kernels' thread pool is not starved by idle OpenMP workers.
+- Documented `moondream/parakeet-redux`, the ternary Parakeet for CPUs and
+  Apple silicon.
+
 ## 2.3.0
 
 - Upgraded Photon local inference to `kestrel 0.7.2`.

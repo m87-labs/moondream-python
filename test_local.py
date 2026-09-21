@@ -624,3 +624,23 @@ def main(image_path: str):
 if __name__ == "__main__":
     image_path = "moondream/assets/how-to-be-a-people-person-1662995088.jpg"
     main(image_path)
+
+
+def test_photon_device_falls_back_to_cpu(monkeypatch):
+    import torch
+
+    from moondream import photon_vl
+
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    monkeypatch.setattr(torch.backends.cuda, "is_built", lambda: False)
+    if hasattr(torch.backends, "mps"):
+        monkeypatch.setattr(torch.backends.mps, "is_available", lambda: False)
+    assert photon_vl._default_photon_device() == "cpu"
+
+
+def test_photon_sets_the_openmp_wait_policy_before_torch():
+    import os
+
+    import moondream.photon_vl  # noqa: F401
+
+    assert os.environ["OMP_WAIT_POLICY"] == "passive"
