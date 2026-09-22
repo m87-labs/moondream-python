@@ -30,7 +30,7 @@ Photon 2.1 includes these local model families:
 | Gemma 4 | E2B, E4B, 26B-A4B, and 31B base/instruction variants |
 | Whisper | Whisper large-v3-turbo transcription and English translation |
 | Qwen3-ASR | 0.6B and 1.7B transcription and forced alignment |
-| Parakeet TDT | 0.6B v3 transcription; [parakeet-redux](https://huggingface.co/moondream/parakeet-redux), its ternary version for CPUs, Apple silicon, and CUDA |
+| Parakeet TDT | 0.6B v3 transcription; [parakeet-redux](https://huggingface.co/moondream/parakeet-redux), its ternary version for CPUs, Apple silicon, and CUDA; [parakeet-ultra](https://huggingface.co/moondream/parakeet-ultra), the full-precision version trained further, for GPUs |
 
 Use `md.photon_models()` to inspect the exact registered identifiers in the installed
 release. The returned client reports `model_id`, `tasks`, and
@@ -107,6 +107,7 @@ qwen = md.photon("Qwen/Qwen3.5-4B")
 gemma = md.photon("google/gemma-4-E2B-it")
 speech = md.photon("openai/whisper-large-v3-turbo")
 speech = md.photon("moondream/parakeet-redux")               # CPU, Apple silicon or CUDA
+speech = md.photon("moondream/parakeet-ultra")               # the full-precision one, for GPUs
 ```
 
 Photon picks CUDA when it is available, then Apple silicon, then the CPU; pass
