@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.4.1
+
+- Added `moondream/parakeet-ultra` for full-precision GPU transcription and upgraded Photon to `kestrel 0.8.1`.
+
 ## 2.4.0
 
 - Added fast, memory-efficient local transcription with `moondream/parakeet-redux` on CPUs, Apple silicon, and CUDA, including pause-aware processing for long audio.
