@@ -1,4 +1,4 @@
-"""Local GPU inference backend using kestrel (Photon)."""
+"""Local Photon model client backed by Kestrel."""
 
 import asyncio
 import atexit
@@ -340,7 +340,7 @@ class PhotonStream(Iterator[dict[str, object]]):
 # ------------------------------------------------------------------
 # Singleton engine cache
 # ------------------------------------------------------------------
-# PhotonVL instances differing only by adapter share an engine. Credentials
+# PhotonClient instances differing only by adapter share an engine. Credentials
 # remain isolated because the engine owns the adapter provider for its key.
 
 _engine_cache: dict[tuple, tuple] = {}  # key -> (engine, loop, thread, refs)
@@ -460,7 +460,7 @@ def _release_engine(key: tuple) -> None:
     _stop_engine(*entry[:3])
 
 
-class PhotonVL(VLM):
+class PhotonClient(VLM):
     """Client for local Photon model capabilities."""
 
     def __init__(
