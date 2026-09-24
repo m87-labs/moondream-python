@@ -4,7 +4,6 @@
 
 - Added Photon speech synthesis with Qwen3-TTS CustomVoice 0.6B/1.7B and
   Kokoro-82M through `synthesize` and `asynthesize`, including PCM streaming.
-- Upgraded the pinned Photon runtime to `kestrel 0.8.2`.
 
 ## 2.4.1
 
