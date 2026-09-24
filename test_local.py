@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import moondream as md
 from PIL import Image
-from moondream.photon_vl import PhotonStream, PhotonVL, _parse_model
+from moondream.photon_client import PhotonClient, PhotonStream, _parse_model
 
 
 def test_model_parser_preserves_registered_repository_ids():
@@ -99,7 +99,7 @@ def test_photon_chat_preserves_model_reasoning_default():
                 finish_reason=None,
             )
 
-    client = object.__new__(PhotonVL)
+    client = object.__new__(PhotonClient)
     client._adapter = None
     client._model = FakeModel()
     client._run = asyncio.run
@@ -135,7 +135,7 @@ def test_photon_transcribe_passes_options_and_returns_public_output():
                 }
             )
 
-    client = object.__new__(PhotonVL)
+    client = object.__new__(PhotonClient)
     client._adapter = None
     client._model = FakeModel()
     client._run = asyncio.run
@@ -164,6 +164,35 @@ def test_photon_transcribe_passes_options_and_returns_public_output():
     ]
 
 
+def test_photon_synthesize_forwards_prompt_and_audio():
+    calls = []
+
+    class FakeModel:
+        model_id = "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice"
+        tasks = ("synthesize",)
+
+        def supports(self, task):
+            return task in self.tasks
+
+        async def synthesize(self, **prompt):
+            calls.append(prompt)
+            return SimpleNamespace(output={"audio": [0.1, 0.2], "sample_rate": 24_000})
+
+    async def arun(coro):
+        return await coro
+
+    client = object.__new__(PhotonClient)
+    client._adapter = None
+    client._model = FakeModel()
+    client._run = asyncio.run
+    client._arun = arun
+
+    expected = {"audio": [0.1, 0.2], "sample_rate": 24_000}
+    assert client.synthesize(text="hello") == expected
+    assert asyncio.run(client.asynthesize(text="hello")) == expected
+    assert calls == [{"text": "hello"}, {"text": "hello"}]
+
+
 def test_photon_invoke_rejects_unadvertised_capability():
     class FakeModel:
         model_id = "vision-model"
@@ -172,7 +201,7 @@ def test_photon_invoke_rejects_unadvertised_capability():
         def supports(self, task):
             return task in self.tasks
 
-    client = object.__new__(PhotonVL)
+    client = object.__new__(PhotonClient)
     client._model = FakeModel()
 
     try:
@@ -225,7 +254,7 @@ def test_photon_transcription_stream_preserves_snapshots_and_result():
     loop = asyncio.new_event_loop()
     thread = threading.Thread(target=loop.run_forever)
     thread.start()
-    client = object.__new__(PhotonVL)
+    client = object.__new__(PhotonClient)
     client._adapter = None
     client._loop = loop
     client._model = FakeModel()
@@ -250,7 +279,7 @@ def test_photon_run_returns_single_pass_public_output():
             assert inputs == {"text": "hello"}
             return SimpleNamespace(output={"embedding": [1.0, 2.0]})
 
-    client = object.__new__(PhotonVL)
+    client = object.__new__(PhotonClient)
     client._model = FakeModel()
     client._run = asyncio.run
 
@@ -293,7 +322,7 @@ def test_photon_stateful_stream_forwards_chunks_updates_and_close():
     loop = asyncio.new_event_loop()
     thread = threading.Thread(target=loop.run_forever)
     thread.start()
-    client = object.__new__(PhotonVL)
+    client = object.__new__(PhotonClient)
     client._loop = loop
     client._model = FakeModel()
     try:
@@ -350,7 +379,7 @@ def test_photon_live_audio_bridges_application_and_worker_loops():
     worker_loop = asyncio.new_event_loop()
     thread = threading.Thread(target=worker_loop.run_forever)
     thread.start()
-    client = object.__new__(PhotonVL)
+    client = object.__new__(PhotonClient)
     client._adapter = None
     client._loop = worker_loop
     client._model = FakeModel()
@@ -400,7 +429,7 @@ def test_photon_nonstream_live_audio_uses_async_entrypoint():
     worker_loop = asyncio.new_event_loop()
     thread = threading.Thread(target=worker_loop.run_forever)
     thread.start()
-    client = object.__new__(PhotonVL)
+    client = object.__new__(PhotonClient)
     client._adapter = None
     client._loop = worker_loop
     client._model = FakeModel()
@@ -629,10 +658,10 @@ if __name__ == "__main__":
 def test_photon_device_falls_back_to_cpu(monkeypatch):
     import torch
 
-    from moondream import photon_vl
+    from moondream import photon_client
 
     monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
     monkeypatch.setattr(torch.backends.cuda, "is_built", lambda: False)
     if hasattr(torch.backends, "mps"):
         monkeypatch.setattr(torch.backends.mps, "is_available", lambda: False)
-    assert photon_vl._default_photon_device() == "cpu"
+    assert photon_client._default_photon_device() == "cpu"

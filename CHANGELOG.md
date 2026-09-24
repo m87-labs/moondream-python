@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.5.0
+
+- Added Photon speech synthesis with Qwen3-TTS CustomVoice 0.6B/1.7B and
+  Kokoro-82M through `synthesize` and `asynthesize`, including PCM streaming.
+
 ## 2.4.1
 
 - Added `moondream/parakeet-ultra` for full-precision GPU transcription and upgraded Photon to `kestrel 0.8.1`.

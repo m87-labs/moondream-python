@@ -1,4 +1,4 @@
-"""Local GPU inference backend using kestrel (Photon)."""
+"""Local Photon model client backed by Kestrel."""
 
 import asyncio
 import atexit
@@ -340,7 +340,7 @@ class PhotonStream(Iterator[dict[str, object]]):
 # ------------------------------------------------------------------
 # Singleton engine cache
 # ------------------------------------------------------------------
-# PhotonVL instances differing only by adapter share an engine. Credentials
+# PhotonClient instances differing only by adapter share an engine. Credentials
 # remain isolated because the engine owns the adapter provider for its key.
 
 _engine_cache: dict[tuple, tuple] = {}  # key -> (engine, loop, thread, refs)
@@ -460,7 +460,7 @@ def _release_engine(key: tuple) -> None:
     _stop_engine(*entry[:3])
 
 
-class PhotonVL(VLM):
+class PhotonClient(VLM):
     """Client for local Photon model capabilities."""
 
     def __init__(
@@ -583,6 +583,17 @@ class PhotonVL(VLM):
         if not isinstance(result, (dict, PhotonStream)):
             raise TypeError("Photon transcription returned an unsupported result")
         return result
+
+    def synthesize(self, **prompt: Any) -> Union[dict[str, object], PhotonStream]:
+        """Synthesize speech with a TTS-capable Photon model."""
+        return self.invoke("synthesize", **prompt)
+
+    async def asynthesize(
+        self, **prompt: Any
+    ) -> Union[dict[str, object], PhotonStream]:
+        """Asynchronously synthesize speech without blocking the caller loop."""
+        capability, owned_prompt = self._prepare_invocation("synthesize", prompt)
+        return self._adapt_result(await self._arun(capability(**owned_prompt)))
 
     # ------------------------------------------------------------------
     # Helpers

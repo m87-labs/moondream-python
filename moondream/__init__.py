@@ -24,9 +24,9 @@ def photon(
     **runtime_config,
 ):
     """Create a local Photon model with its complete capability surface."""
-    from .photon_vl import PhotonVL
+    from .photon_client import PhotonClient
 
-    return PhotonVL(
+    return PhotonClient(
         api_key=api_key,
         model=model,
         **runtime_config,
@@ -52,7 +52,7 @@ def vl(
             arguments configure the Photon runtime.
 
     Returns:
-        An instance of CloudVL or PhotonVL.
+        An instance of CloudVL or PhotonClient.
     """
     if local:
         if model is None:

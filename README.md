@@ -1,6 +1,6 @@
 # Moondream Python Client Library
 
-Official Python interface for [Moondream Cloud](https://moondream.ai/cloud) and Photon local inference on NVIDIA GPUs (Linux x86_64 / aarch64 or Windows) or Apple Silicon Macs.
+Official Python interface for [Moondream Cloud](https://moondream.ai/cloud) and Photon local inference on NVIDIA GPUs, Apple Silicon Macs, or CPUs where the selected model supports them.
 
 ## Capabilities
 
@@ -15,12 +15,13 @@ Photon exposes each selected model's capabilities through one model-bound client
 | `point` | Identify the center location of specified objects |
 | `segment` | Generate an SVG path segmentation mask for objects |
 | `transcribe` | Transcribe or translate audio, including files and live PCM streams |
+| `synthesize` | Generate speech as complete or streamed PCM audio |
 
 Try it out on [Moondream's playground](https://moondream.ai/playground).
 
 ## Photon Models
 
-Photon 2.1 includes these local model families:
+Photon includes these local model families:
 
 | Family | Models |
 |--------|--------|
@@ -31,6 +32,8 @@ Photon 2.1 includes these local model families:
 | Whisper | Whisper large-v3-turbo transcription and English translation |
 | Qwen3-ASR | 0.6B and 1.7B transcription and forced alignment |
 | Parakeet TDT | 0.6B v3 transcription; [parakeet-redux](https://huggingface.co/moondream/parakeet-redux), its ternary version for CPUs, Apple silicon, and CUDA; [parakeet-ultra](https://huggingface.co/moondream/parakeet-ultra), the full-precision version trained further, for GPUs |
+| Qwen3-TTS | CustomVoice 0.6B and 1.7B text-to-speech on CUDA |
+| Kokoro | 82M phoneme-to-speech on CPU or CUDA |
 
 Use `md.photon_models()` to inspect the exact registered identifiers in the installed
 release. The returned client reports `model_id`, `tasks`, and
@@ -49,7 +52,7 @@ pip install moondream
 Choose how you want to run Moondream:
 
 1. **Moondream Cloud** — Get an API key from the [cloud console](https://moondream.ai/c/cloud/api-keys)
-2. **Moondream Photon** — High-performance local inference engine on NVIDIA GPUs (Linux / Windows) or Apple Silicon Macs (macOS 13+). Base models run locally without an API key; an API key is only needed for finetuned models.
+2. **Moondream Photon** — High-performance local inference engine on NVIDIA GPUs (Linux / Windows), Apple Silicon Macs (macOS 13+), and CPUs for supported models. Base models run locally without an API key; an API key is only needed for finetuned models.
 
 ```python
 import moondream as md
@@ -58,7 +61,7 @@ from PIL import Image
 # Initialize with Moondream Cloud
 model = md.vl(api_key="<your-api-key>")
 
-# Or initialize Photon local inference (NVIDIA GPU or Apple Silicon)
+# Or initialize Photon local inference on a device supported by the model
 model = md.photon("moondream3.1-9B-A2B")
 
 # Load an image
@@ -93,6 +96,12 @@ with md.photon("openai/whisper-large-v3-turbo") as speech:
         timestamps="word",
     )
     print(transcript["text"])
+
+# Photon speech synthesis returns mono 24 kHz floating-point PCM
+with md.photon("Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice") as voice:
+    result = voice.synthesize(text="Good morning!", voice="Ryan")
+    pcm = result["audio"]
+    sample_rate = result["sample_rate"]
 ```
 
 ## API Reference
@@ -108,6 +117,8 @@ gemma = md.photon("google/gemma-4-E2B-it")
 speech = md.photon("openai/whisper-large-v3-turbo")
 speech = md.photon("moondream/parakeet-redux")               # CPU, Apple silicon or CUDA
 speech = md.photon("moondream/parakeet-ultra")               # the full-precision one, for GPUs
+voice = md.photon("Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice")
+voice = md.photon("hexgrad/Kokoro-82M", device="cpu")       # accepts phonemes, not text
 ```
 
 Photon picks CUDA when it is available, then Apple silicon, then the CPU; pass
@@ -338,6 +349,28 @@ language or prompt options.
 with md.photon("moondream/parakeet-redux") as speech:
     print(speech.transcribe(audio="meeting.mp3")["text"])
 ```
+
+#### `synthesize(text=..., stream=False, **options)`
+
+Generate mono 24 kHz floating-point PCM with either Qwen3-TTS CustomVoice
+checkpoint. The 1.7B model also accepts `instructions`; both accept `voice`,
+`language`, and sampling `settings`. Streamed updates contain successive audio
+chunks, while `result()` returns the complete waveform.
+
+```python
+with md.photon("Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice") as voice:
+    stream = voice.synthesize(text="Good morning!", voice="Ryan", stream=True)
+    for update in stream:
+        play(update["audio"], update["sample_rate"])  # your audio output callback
+    complete = stream.result()
+```
+
+For asynchronous callers, use `await voice.asynthesize(...)` and iterate the
+returned stream with `async for`. `hexgrad/Kokoro-82M` uses the same methods but
+accepts `phonemes=` rather than `text=`. Supply a Unicode phoneme string in
+Kokoro's vocabulary; text-to-phoneme conversion is the caller's responsibility.
+Kokoro does not require a G2P dependency in `moondream`. On Apple silicon,
+select `device="cpu"` for Kokoro because its Kestrel runtime does not use MPS.
 
 ### Types
 
