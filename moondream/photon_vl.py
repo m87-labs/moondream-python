@@ -584,6 +584,17 @@ class PhotonVL(VLM):
             raise TypeError("Photon transcription returned an unsupported result")
         return result
 
+    def synthesize(self, **prompt: Any) -> Union[dict[str, object], PhotonStream]:
+        """Synthesize speech with a TTS-capable Photon model."""
+        return self.invoke("synthesize", **prompt)
+
+    async def asynthesize(
+        self, **prompt: Any
+    ) -> Union[dict[str, object], PhotonStream]:
+        """Asynchronously synthesize speech without blocking the caller loop."""
+        capability, owned_prompt = self._prepare_invocation("synthesize", prompt)
+        return self._adapt_result(await self._arun(capability(**owned_prompt)))
+
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------

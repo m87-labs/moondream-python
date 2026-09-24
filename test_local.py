@@ -164,6 +164,35 @@ def test_photon_transcribe_passes_options_and_returns_public_output():
     ]
 
 
+def test_photon_synthesize_forwards_prompt_and_audio():
+    calls = []
+
+    class FakeModel:
+        model_id = "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice"
+        tasks = ("synthesize",)
+
+        def supports(self, task):
+            return task in self.tasks
+
+        async def synthesize(self, **prompt):
+            calls.append(prompt)
+            return SimpleNamespace(output={"audio": [0.1, 0.2], "sample_rate": 24_000})
+
+    async def arun(coro):
+        return await coro
+
+    client = object.__new__(PhotonVL)
+    client._adapter = None
+    client._model = FakeModel()
+    client._run = asyncio.run
+    client._arun = arun
+
+    expected = {"audio": [0.1, 0.2], "sample_rate": 24_000}
+    assert client.synthesize(text="hello") == expected
+    assert asyncio.run(client.asynthesize(text="hello")) == expected
+    assert calls == [{"text": "hello"}, {"text": "hello"}]
+
+
 def test_photon_invoke_rejects_unadvertised_capability():
     class FakeModel:
         model_id = "vision-model"
