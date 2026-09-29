@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.6.0
+
+- Photon now supports Qwen3.8-27B, including BF16 and FP8 checkpoints and
+  DFlash2 speculative decoding.
+- Added fast generated verification on NVIDIA B200 for one or two concurrent
+  speculative requests, configured through the existing Photon runtime options.
+- Updated the local inference engine to `kestrel 0.9.0`.
+
+See the underlying engine [0.9.0](https://github.com/m87-labs/kestrel/blob/main/CHANGELOG.md#090--2026-09-29)
+release notes for configuration requirements and the complete engine changes.
+
 ## 2.5.0
 
 - Added Photon speech synthesis with Qwen3-TTS CustomVoice 0.6B/1.7B and
