@@ -412,22 +412,23 @@ i18n = ["Babel (>=2.7)"]
 
 [[package]]
 name = "kestrel"
-version = "0.9.1"
+version = "0.9.2"
 description = "A fast, efficient inference engine for multimodal models"
 optional = false
 python-versions = "<3.15,>=3.10"
 groups = ["main"]
 files = [
-    {file = "kestrel-0.9.1-py3-none-any.whl", hash = "sha256:80640639279b18b2da61b08c06c550f8eaab6596d6d15978fd56f76707462cb7"},
-    {file = "kestrel-0.9.1.tar.gz", hash = "sha256:52083e88c71ccd6023096714033403d73a7cfb7a83b72493509bfb09163f344a"},
+    {file = "kestrel-0.9.2-py3-none-any.whl", hash = "sha256:9f86bb606a6d889d97b7e42f82cec1c83d377a75acc9f8cd2b19a5054ac6693e"},
+    {file = "kestrel-0.9.2.tar.gz", hash = "sha256:f7873915751b8bb235067be3e9721d722f0d012906f110efeaa350049731e0a0"},
 ]
 
 [package.dependencies]
 httpx = ">=0.27"
 huggingface-hub = ">=0.20"
-kestrel-kernels = "0.7.4"
-kestrel-native = "0.1.8"
+kestrel-kernels = "0.7.5"
+kestrel-native = "0.1.9"
 numpy = ">=1.26"
+pillow = ">=10"
 safetensors = ">=0.4"
 tokenizers = ">=0.15"
 torch = [
@@ -438,48 +439,48 @@ torch-c-dlpack-ext = ">=0.1.3"
 
 [[package]]
 name = "kestrel-kernels"
-version = "0.7.4"
+version = "0.7.5"
 description = "Kernel library for Kestrel"
 optional = false
 python-versions = "<3.15,>=3.10"
 groups = ["main"]
 files = [
-    {file = "kestrel_kernels-0.7.4-cp310-cp310-macosx_13_0_arm64.whl", hash = "sha256:9585e36e661d43fc1078910d9e02639797e02918b10e14e09aba4eabab93a551"},
-    {file = "kestrel_kernels-0.7.4-cp310-cp310-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:9f7e8364555c21abcc68c90e15b195bb1d78f46a5930fd4e8740add38647bb4c"},
-    {file = "kestrel_kernels-0.7.4-cp310-cp310-manylinux_2_34_aarch64.manylinux_2_35_aarch64.whl", hash = "sha256:eaa5735a2a49d30279ac0be34810f727e6b3920a1fa1b7cf2f55c2f996fa7f79"},
-    {file = "kestrel_kernels-0.7.4-cp310-cp310-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:34e1e4e106c5d44f0c2cbf2742e3d4cb6fae89b782dccd71a407ece9c7304c71"},
-    {file = "kestrel_kernels-0.7.4-cp310-cp310-win_amd64.whl", hash = "sha256:e1faf6977c5839c0c9b620748b179c6eb0bcc65d991e58a701600337a24d4245"},
-    {file = "kestrel_kernels-0.7.4-cp311-cp311-macosx_13_0_arm64.whl", hash = "sha256:b5ed831e7350e65b0ae5328c605c4e676fcc024725512a3e1d8430b5bf4dc919"},
-    {file = "kestrel_kernels-0.7.4-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:ac45724d1faa300af5994078ef6209322c7c53c8f3c68179761ee126497ef771"},
-    {file = "kestrel_kernels-0.7.4-cp311-cp311-manylinux_2_34_aarch64.manylinux_2_35_aarch64.whl", hash = "sha256:b10bdc83860f73a5ab6c6c693327a02a6688a27c3824752362a062ea7d4d0ae1"},
-    {file = "kestrel_kernels-0.7.4-cp311-cp311-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:2bfebe8939c450b72772cf5ff364eb9c58b1cc97cbdb7f27f2e4379a0c802295"},
-    {file = "kestrel_kernels-0.7.4-cp311-cp311-win_amd64.whl", hash = "sha256:afccaf2d3b32950839415a440249835c90d8fb75d30566ea8b238b89d744a75c"},
-    {file = "kestrel_kernels-0.7.4-cp312-cp312-macosx_13_0_arm64.whl", hash = "sha256:1f0e3ac8920529efc19eed366c3eba807fcb7fa0b2b3b71bb7dbfd35229d0b22"},
-    {file = "kestrel_kernels-0.7.4-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:759c8db277635c7aae25095699020806e565521423759e2b575193a6f84897fc"},
-    {file = "kestrel_kernels-0.7.4-cp312-cp312-manylinux_2_34_aarch64.manylinux_2_35_aarch64.whl", hash = "sha256:d6304ba011a996a17e4ef34f47d6653eeca330ff3a43d607d536e0a4a82114e9"},
-    {file = "kestrel_kernels-0.7.4-cp312-cp312-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:50a8b4bea28675db48920e58df0fa0911bb5667e42f83b153e99f3cac367e6a3"},
-    {file = "kestrel_kernels-0.7.4-cp312-cp312-win_amd64.whl", hash = "sha256:5f938d8e57a381fd5a34036252c5c9b0d736d156e6e330ff0626748af786494c"},
-    {file = "kestrel_kernels-0.7.4-cp313-cp313-macosx_13_0_arm64.whl", hash = "sha256:6c2bacbf7adfd36ad81b770f37f350ca2ab71ff6da95c5d633131e271c023181"},
-    {file = "kestrel_kernels-0.7.4-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:a38261e2438223ee85a25a81d6236510a5ed0fab918a8e2edad6bebd145d622e"},
-    {file = "kestrel_kernels-0.7.4-cp313-cp313-manylinux_2_34_aarch64.manylinux_2_35_aarch64.whl", hash = "sha256:696de064f38c745a4c3ea4c8b284bed7a2f44f8bbc8bf6122e8e2e7dc0212a3d"},
-    {file = "kestrel_kernels-0.7.4-cp313-cp313-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:51e4ee27fe48a779ad3634496a5831ccf9c21c14101467b9c3411b5aaba29aed"},
-    {file = "kestrel_kernels-0.7.4-cp313-cp313-win_amd64.whl", hash = "sha256:042aa19e79239c79621d151f82aa2e4dedc341a17aaaac0a41bcc3aeaa9f693c"},
-    {file = "kestrel_kernels-0.7.4-cp314-cp314-macosx_13_0_arm64.whl", hash = "sha256:ec0af8b7cd005c7a532cc26cc0f0531df88dab7f89f4960cf759fe256e6dc9a1"},
-    {file = "kestrel_kernels-0.7.4-cp314-cp314-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:2a4ea87dabce2271d5639f65ac8d835d40d2153ca3066e34a5e89dea963da582"},
-    {file = "kestrel_kernels-0.7.4-cp314-cp314-manylinux_2_34_aarch64.manylinux_2_35_aarch64.whl", hash = "sha256:40c7a1c51e4b67915aea1ca261cbcafa0827c7473c2ac72e755fc55d2ed50f23"},
-    {file = "kestrel_kernels-0.7.4-cp314-cp314-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:cf802041962e7ea3750c8bb379cb4339d89c606fedc1b0b9281627a68046831a"},
-    {file = "kestrel_kernels-0.7.4-cp314-cp314-win_amd64.whl", hash = "sha256:bb669d6a8fa82833af23dea2b0ef3810681482c34c8880ae60e22492dfc469cd"},
+    {file = "kestrel_kernels-0.7.5-cp310-cp310-macosx_13_0_arm64.whl", hash = "sha256:7dcdb6e09509faf624ab6c7ed13bc8039031a41f8a4e29aa5464902f3f57be90"},
+    {file = "kestrel_kernels-0.7.5-cp310-cp310-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:ef3d6fa96d974e011dbaf7ad2b5140022c6d99123425769ad9c2254dd2aef6bd"},
+    {file = "kestrel_kernels-0.7.5-cp310-cp310-manylinux_2_34_aarch64.manylinux_2_35_aarch64.whl", hash = "sha256:7f13b9bd91e6305f81b3a895970c71e8e17257cae1a4f2274937041c848e83ec"},
+    {file = "kestrel_kernels-0.7.5-cp310-cp310-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:6047df792bee7809ba696050bda27723706e65a27bcea93f72ed691466e5b6ba"},
+    {file = "kestrel_kernels-0.7.5-cp310-cp310-win_amd64.whl", hash = "sha256:cc8b25aaad78ae0bd8ba654d9d0154d944a8169b1d0774c99032a98be3a5f917"},
+    {file = "kestrel_kernels-0.7.5-cp311-cp311-macosx_13_0_arm64.whl", hash = "sha256:ae64de8f3345efa33c11cc47af7c58bf9e69401a9376c330eab92a7ea1de7ee9"},
+    {file = "kestrel_kernels-0.7.5-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:3fc518a25b9689c429b5b37e88347aa8db797d9722818d4050d78cffd64e799e"},
+    {file = "kestrel_kernels-0.7.5-cp311-cp311-manylinux_2_34_aarch64.manylinux_2_35_aarch64.whl", hash = "sha256:8c336c41e3a2b118c84f8f0e33cccb8939ed28fc7c4cd1684cfd6aee7df89b55"},
+    {file = "kestrel_kernels-0.7.5-cp311-cp311-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:819dc25815170e7a8c623520d7ecf0c85657b3e1da5a62be3fbbfca8aed8095e"},
+    {file = "kestrel_kernels-0.7.5-cp311-cp311-win_amd64.whl", hash = "sha256:c00c86fa6a8730c7fdd6a78f6e1e237ccc8c45b5fcec7f70077cdd37add3e7da"},
+    {file = "kestrel_kernels-0.7.5-cp312-cp312-macosx_13_0_arm64.whl", hash = "sha256:80dadc2293a56728ce16219dd5f8fcb4b408af7ccfffea470f70762f6ad3166a"},
+    {file = "kestrel_kernels-0.7.5-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:e2367fcc9871c8a5e2332067bff0e73fff92d0f5abc8693f9c8627a27d0c1b72"},
+    {file = "kestrel_kernels-0.7.5-cp312-cp312-manylinux_2_34_aarch64.manylinux_2_35_aarch64.whl", hash = "sha256:27a4c02af4015387013ce0a9a647c8683304ade2055343bf42d6e19b9283211c"},
+    {file = "kestrel_kernels-0.7.5-cp312-cp312-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:f656ab0c712c28e00021e15a90777e1a25daf3627c71c7f96363ec6832b4d0f2"},
+    {file = "kestrel_kernels-0.7.5-cp312-cp312-win_amd64.whl", hash = "sha256:e56ea19fbf533bc8c717a983a649158137ecc06b2fac56c76a6bfa29fefe6312"},
+    {file = "kestrel_kernels-0.7.5-cp313-cp313-macosx_13_0_arm64.whl", hash = "sha256:69c2b608f3de548eaf4c88bdd53c2b4b3e25c3573550e498a651e442eded47da"},
+    {file = "kestrel_kernels-0.7.5-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:0d5f12c93341ceef2ca54947dbea87743377964dc3575181e1aee3e37dfdd600"},
+    {file = "kestrel_kernels-0.7.5-cp313-cp313-manylinux_2_34_aarch64.manylinux_2_35_aarch64.whl", hash = "sha256:ce8ae4faf1a6a667861851eb1162ac8c7e997ad921f29075237b3ac3399b9461"},
+    {file = "kestrel_kernels-0.7.5-cp313-cp313-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:ede211dbe8022be1bbd6d44bff336cc448c2b4642f8db478057a425b6ccf758e"},
+    {file = "kestrel_kernels-0.7.5-cp313-cp313-win_amd64.whl", hash = "sha256:dfdb6420deb73dc775bbaece4ef97faa4ad34a375fdf66c51344456064320eaa"},
+    {file = "kestrel_kernels-0.7.5-cp314-cp314-macosx_13_0_arm64.whl", hash = "sha256:38144242b860d80d716128bcd215d18fff82126a2e3c7644684b768a2b684a86"},
+    {file = "kestrel_kernels-0.7.5-cp314-cp314-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:4b8499f112d424d68375a75ba92708f76d5e704a88c1ec9ae5bf70007f721f49"},
+    {file = "kestrel_kernels-0.7.5-cp314-cp314-manylinux_2_34_aarch64.manylinux_2_35_aarch64.whl", hash = "sha256:7ff7e66eca8d17384559af5a3101929d01425a7707fd6b9579ee919364dbc999"},
+    {file = "kestrel_kernels-0.7.5-cp314-cp314-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:2a1a63a5070cc724d0ee8eff8d7e65d616caf7dd93a97f0b3cb0d35dea5dca47"},
+    {file = "kestrel_kernels-0.7.5-cp314-cp314-win_amd64.whl", hash = "sha256:71f73fb00c16248a275f0423cd21f7671412d594216dcb3ef1f1af127b46a005"},
 ]
 
 [package.dependencies]
-kestrel-kernels-bundle-a = {version = "0.7.4", markers = "sys_platform == \"linux\" or sys_platform == \"win32\""}
-kestrel-kernels-bundle-b = {version = "0.7.4", markers = "sys_platform == \"linux\" or sys_platform == \"win32\""}
-kestrel-kernels-bundle-c = {version = "0.7.4", markers = "sys_platform == \"linux\" and platform_machine == \"x86_64\" or sys_platform == \"win32\""}
-kestrel-kernels-bundle-d = {version = "0.7.4", markers = "sys_platform == \"linux\" and platform_machine == \"x86_64\" or sys_platform == \"win32\""}
-kestrel-kernels-bundle-e = {version = "0.7.4", markers = "sys_platform == \"linux\" and platform_machine == \"x86_64\" or sys_platform == \"win32\""}
-kestrel-kernels-bundle-f = {version = "0.7.4", markers = "sys_platform == \"linux\" and platform_machine == \"x86_64\""}
-kestrel-kernels-bundle-g = {version = "0.7.4", markers = "sys_platform == \"linux\" and platform_machine == \"x86_64\""}
-kestrel-kernels-bundle-h = {version = "0.7.4", markers = "sys_platform == \"linux\" and platform_machine == \"x86_64\""}
+kestrel-kernels-bundle-a = {version = "0.7.5", markers = "sys_platform == \"linux\" or sys_platform == \"win32\""}
+kestrel-kernels-bundle-b = {version = "0.7.5", markers = "sys_platform == \"linux\" or sys_platform == \"win32\""}
+kestrel-kernels-bundle-c = {version = "0.7.5", markers = "sys_platform == \"linux\" and platform_machine == \"x86_64\" or sys_platform == \"win32\""}
+kestrel-kernels-bundle-d = {version = "0.7.5", markers = "sys_platform == \"linux\" and platform_machine == \"x86_64\" or sys_platform == \"win32\""}
+kestrel-kernels-bundle-e = {version = "0.7.5", markers = "sys_platform == \"linux\" and platform_machine == \"x86_64\" or sys_platform == \"win32\""}
+kestrel-kernels-bundle-f = {version = "0.7.5", markers = "sys_platform == \"linux\" and platform_machine == \"x86_64\""}
+kestrel-kernels-bundle-g = {version = "0.7.5", markers = "sys_platform == \"linux\" and platform_machine == \"x86_64\""}
+kestrel-kernels-bundle-h = {version = "0.7.5", markers = "sys_platform == \"linux\" and platform_machine == \"x86_64\""}
 kestrel-mps-torch-ext = {version = ">=0.1.1", markers = "sys_platform == \"darwin\""}
 numpy = "*"
 packaging = "*"
@@ -490,113 +491,113 @@ dev = ["pytest (>=7.0)", "triton (>=3.0) ; sys_platform != \"win32\""]
 
 [[package]]
 name = "kestrel-kernels-bundle-a"
-version = "0.7.4"
-description = "Kernel bundle companion for kestrel-kernels 0.7.4"
+version = "0.7.5"
+description = "Kernel bundle companion for kestrel-kernels 0.7.5"
 optional = false
 python-versions = "<3.15,>=3.10"
 groups = ["main"]
 markers = "sys_platform == \"linux\" or sys_platform == \"win32\""
 files = [
-    {file = "kestrel_kernels_bundle_a-0.7.4-py3-none-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:e5497b5afaf73608d565a9d446740d1196c95d1150cb9ca5f80d30d5e7d58ce3"},
-    {file = "kestrel_kernels_bundle_a-0.7.4-py3-none-manylinux_2_34_aarch64.manylinux_2_35_aarch64.whl", hash = "sha256:ae8cb1bb7ac56b20ada72b16c380dc83e165706f01491ad5a5537ef3038e6acf"},
-    {file = "kestrel_kernels_bundle_a-0.7.4-py3-none-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:a9054198c034a9f8ebfb3fb1cd15a68ae8b18a766632520ac6bde536efa78b95"},
-    {file = "kestrel_kernels_bundle_a-0.7.4-py3-none-win_amd64.whl", hash = "sha256:2a12aafc9ba2aa805b23c092b16c288564bb56766fdc61e63bab0fc9ed467b26"},
+    {file = "kestrel_kernels_bundle_a-0.7.5-py3-none-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:42e199bb0bfd8a9a1add524e0663cba7c1dec8188c09ab17979a1221af0909bc"},
+    {file = "kestrel_kernels_bundle_a-0.7.5-py3-none-manylinux_2_34_aarch64.manylinux_2_35_aarch64.whl", hash = "sha256:cb1f46644307ebd2d2a30c2caeb04230ef06e7fdf1ccd4dc420e2ee7c6940eb6"},
+    {file = "kestrel_kernels_bundle_a-0.7.5-py3-none-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:98617ebce95e0a0228e23cc2d439837bbcc2ecc526987de35a25b6ff5bf266d0"},
+    {file = "kestrel_kernels_bundle_a-0.7.5-py3-none-win_amd64.whl", hash = "sha256:9c4c9592ac45049080445a22ced275cce8f2727e1a3e3ee7ccef27c1aeb2d9e8"},
 ]
 
 [[package]]
 name = "kestrel-kernels-bundle-b"
-version = "0.7.4"
-description = "Kernel bundle companion for kestrel-kernels 0.7.4"
+version = "0.7.5"
+description = "Kernel bundle companion for kestrel-kernels 0.7.5"
 optional = false
 python-versions = "<3.15,>=3.10"
 groups = ["main"]
 markers = "sys_platform == \"linux\" or sys_platform == \"win32\""
 files = [
-    {file = "kestrel_kernels_bundle_b-0.7.4-py3-none-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:d75f1d897b649b966295260dd04649de6c187512e10f2917f1b5972c967506ea"},
-    {file = "kestrel_kernels_bundle_b-0.7.4-py3-none-manylinux_2_34_aarch64.manylinux_2_35_aarch64.whl", hash = "sha256:75b1b55ee64e49c1d54000b93e6ed9cf1c194ec322a99db3fee26ae11d512c9a"},
-    {file = "kestrel_kernels_bundle_b-0.7.4-py3-none-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:8e954e9cabb6a57264b22ef15f7b1e178242d339211572f2b462b4139187a7f6"},
-    {file = "kestrel_kernels_bundle_b-0.7.4-py3-none-win_amd64.whl", hash = "sha256:2336407984ae21b3d641163d3bc3c275f89851608ca0f45ee27567ce835a33e4"},
+    {file = "kestrel_kernels_bundle_b-0.7.5-py3-none-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:54fa4bb3b5f2895b488cd5271158310e827be0e37083c0a307f4763bc2ca607a"},
+    {file = "kestrel_kernels_bundle_b-0.7.5-py3-none-manylinux_2_34_aarch64.manylinux_2_35_aarch64.whl", hash = "sha256:c70c700c2ee988907b46f28c32fb6edcb25b225a898502bb1ff9e24763b2b0dd"},
+    {file = "kestrel_kernels_bundle_b-0.7.5-py3-none-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:0197abd61b1eceb26d177a4b78c38f02083a6b967461f41b61431e4796336180"},
+    {file = "kestrel_kernels_bundle_b-0.7.5-py3-none-win_amd64.whl", hash = "sha256:769d9c641d454b146dadebfb3cf81453ae90009affe8e399efe3a37d42318623"},
 ]
 
 [[package]]
 name = "kestrel-kernels-bundle-c"
-version = "0.7.4"
-description = "Kernel bundle companion for kestrel-kernels 0.7.4"
+version = "0.7.5"
+description = "Kernel bundle companion for kestrel-kernels 0.7.5"
 optional = false
 python-versions = "<3.15,>=3.10"
 groups = ["main"]
 markers = "sys_platform == \"linux\" and platform_machine == \"x86_64\" or sys_platform == \"win32\""
 files = [
-    {file = "kestrel_kernels_bundle_c-0.7.4-py3-none-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:e9bdb4cb45c376d26d587d4c9270036065341c10b3e708c1217a144706580e12"},
-    {file = "kestrel_kernels_bundle_c-0.7.4-py3-none-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:557dc5b73ef6ad150c6e8678f285f8dbf3e1b7edeb07980d2ae8880c223d88fe"},
-    {file = "kestrel_kernels_bundle_c-0.7.4-py3-none-win_amd64.whl", hash = "sha256:dcd70dfe0e9c80313384fe48b29eb2c76faeb274a741d2c637c1cf224f142365"},
+    {file = "kestrel_kernels_bundle_c-0.7.5-py3-none-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:e524f251ea893ebf020a2c6e953c09046c808451e688a35cf0d1c4dd0e70a17b"},
+    {file = "kestrel_kernels_bundle_c-0.7.5-py3-none-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:2179203f0ffd6d3d07b0397c3b90d599c1c64c12c93770f1bd4a908ea055d8ca"},
+    {file = "kestrel_kernels_bundle_c-0.7.5-py3-none-win_amd64.whl", hash = "sha256:55af1624a4c6097d8f23a552e362ec68d918db5103865b097b0e88336ddbd97e"},
 ]
 
 [[package]]
 name = "kestrel-kernels-bundle-d"
-version = "0.7.4"
-description = "Kernel bundle companion for kestrel-kernels 0.7.4"
+version = "0.7.5"
+description = "Kernel bundle companion for kestrel-kernels 0.7.5"
 optional = false
 python-versions = "<3.15,>=3.10"
 groups = ["main"]
 markers = "sys_platform == \"linux\" and platform_machine == \"x86_64\" or sys_platform == \"win32\""
 files = [
-    {file = "kestrel_kernels_bundle_d-0.7.4-py3-none-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:869b3e4321a0af2a0f4779c32bcc9bc92bc2d5fd62f26baf5e0876b9e369bad7"},
-    {file = "kestrel_kernels_bundle_d-0.7.4-py3-none-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:57829cdfa7303852f94677750769c9f042fb31e13579abc421c03d5c24bb327e"},
-    {file = "kestrel_kernels_bundle_d-0.7.4-py3-none-win_amd64.whl", hash = "sha256:de84c7bdef2ab1e0f5442bf6d6028be8889bad9aa915a3746600f93c8d52be03"},
+    {file = "kestrel_kernels_bundle_d-0.7.5-py3-none-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:90fde885fbea66f8f640474f531a1797037c5114ba46bcf6a4b5ac7f8b0b29f4"},
+    {file = "kestrel_kernels_bundle_d-0.7.5-py3-none-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:0a920cf3980a0fcf5710a53430bf8bf6a77b0e3a23a9723bcbe5fb8ed1b9bd0d"},
+    {file = "kestrel_kernels_bundle_d-0.7.5-py3-none-win_amd64.whl", hash = "sha256:a092579d546df73f5862d12802a311d61b23cb902a1bd04a23cf1aeae40787f7"},
 ]
 
 [[package]]
 name = "kestrel-kernels-bundle-e"
-version = "0.7.4"
-description = "Kernel bundle companion for kestrel-kernels 0.7.4"
+version = "0.7.5"
+description = "Kernel bundle companion for kestrel-kernels 0.7.5"
 optional = false
 python-versions = "<3.15,>=3.10"
 groups = ["main"]
 markers = "sys_platform == \"linux\" and platform_machine == \"x86_64\" or sys_platform == \"win32\""
 files = [
-    {file = "kestrel_kernels_bundle_e-0.7.4-py3-none-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:e73adcc6fe420f4506680703a97cc9f1bfc96648477364473d6b767d43fb37e1"},
-    {file = "kestrel_kernels_bundle_e-0.7.4-py3-none-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:500cf46fdb07b46516d76cc4bff7a67b9e4e78cad831443d7b908f22c3658843"},
-    {file = "kestrel_kernels_bundle_e-0.7.4-py3-none-win_amd64.whl", hash = "sha256:7c7dd27afcf201f5b4da9ca73a8ebea513f632a1b97711265c18df2738fc099c"},
+    {file = "kestrel_kernels_bundle_e-0.7.5-py3-none-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:9491744bc679b2265bd075efb44ba832faf2452386e6443f4536eedff89df1e1"},
+    {file = "kestrel_kernels_bundle_e-0.7.5-py3-none-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:a3e6961921080d5f2a91d74128473aca5616d7a2e3702ce2db52abfd1b7a44ac"},
+    {file = "kestrel_kernels_bundle_e-0.7.5-py3-none-win_amd64.whl", hash = "sha256:953a2583fa199338e3e4225cd30d2173a9b2d0bb92c91ab89623c413f4151227"},
 ]
 
 [[package]]
 name = "kestrel-kernels-bundle-f"
-version = "0.7.4"
-description = "Kernel bundle companion for kestrel-kernels 0.7.4"
+version = "0.7.5"
+description = "Kernel bundle companion for kestrel-kernels 0.7.5"
 optional = false
 python-versions = "<3.15,>=3.10"
 groups = ["main"]
 markers = "sys_platform == \"linux\" and platform_machine == \"x86_64\""
 files = [
-    {file = "kestrel_kernels_bundle_f-0.7.4-py3-none-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:748921b67b78d37c5577acc15430e7cbd6d39b30e7ab46696a17f83a29c72851"},
-    {file = "kestrel_kernels_bundle_f-0.7.4-py3-none-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:2bc734bc0c1aaa2b617c2340c461e5ebcdd163752afeb4519106694c6bbe5779"},
+    {file = "kestrel_kernels_bundle_f-0.7.5-py3-none-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:ae30ac2f5d1829ebab211205067ca1574a28fe387151801dcf39b383405e8f6a"},
+    {file = "kestrel_kernels_bundle_f-0.7.5-py3-none-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:8ba8be790ecd377b30f35e0afb6058874246521ec746f568c8a685b154dc32cd"},
 ]
 
 [[package]]
 name = "kestrel-kernels-bundle-g"
-version = "0.7.4"
-description = "Kernel bundle companion for kestrel-kernels 0.7.4"
+version = "0.7.5"
+description = "Kernel bundle companion for kestrel-kernels 0.7.5"
 optional = false
 python-versions = "<3.15,>=3.10"
 groups = ["main"]
 markers = "sys_platform == \"linux\" and platform_machine == \"x86_64\""
 files = [
-    {file = "kestrel_kernels_bundle_g-0.7.4-py3-none-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:3d55eaefbae08c8ccb91298d2a84ed47eeab76f43fb72e8505839585583b3efa"},
-    {file = "kestrel_kernels_bundle_g-0.7.4-py3-none-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:7ff7e38df37f177a8273089c298d628f6f94cb6bd3c050c9c0a5f0d4177f2a54"},
+    {file = "kestrel_kernels_bundle_g-0.7.5-py3-none-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:88ce7010fa30b7a54805c4dc55fec6fff84aeb329816e730025a64ff1f30516c"},
+    {file = "kestrel_kernels_bundle_g-0.7.5-py3-none-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:66303a543856177fae8cc5df0194d0bc4fe0f0f5d2a526dcfe5109f3220e543f"},
 ]
 
 [[package]]
 name = "kestrel-kernels-bundle-h"
-version = "0.7.4"
-description = "Kernel bundle companion for kestrel-kernels 0.7.4"
+version = "0.7.5"
+description = "Kernel bundle companion for kestrel-kernels 0.7.5"
 optional = false
 python-versions = "<3.15,>=3.10"
 groups = ["main"]
 markers = "sys_platform == \"linux\" and platform_machine == \"x86_64\""
 files = [
-    {file = "kestrel_kernels_bundle_h-0.7.4-py3-none-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:997b2301b20d4900766b91b1ea5e5712ca3c1d6b8f4cd7018802ee4557f8d1e6"},
-    {file = "kestrel_kernels_bundle_h-0.7.4-py3-none-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:7ddd51d2807bd4eaddf714b89dad190b3cf2d16f61e7116c9ed23ed77d7eb33c"},
+    {file = "kestrel_kernels_bundle_h-0.7.5-py3-none-manylinux_2_24_x86_64.manylinux_2_31_x86_64.whl", hash = "sha256:1a22dbd129a6a39351a446109429c11d1eed8480e36e7bf043cca2fb5034c8d3"},
+    {file = "kestrel_kernels_bundle_h-0.7.5-py3-none-manylinux_2_34_x86_64.manylinux_2_35_x86_64.whl", hash = "sha256:b98abdb3661c1c85dfaaa066357287c8e9660745533781ebe3c71d3f42a66cc2"},
 ]
 
 [[package]]
@@ -620,42 +621,42 @@ packaging = "*"
 
 [[package]]
 name = "kestrel-native"
-version = "0.1.8"
+version = "0.1.9"
 description = "High-performance native extensions for Kestrel"
 optional = false
 python-versions = "<3.15,>=3.10"
 groups = ["main"]
 files = [
-    {file = "kestrel_native-0.1.8-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:50c6ba8366008964f0f0d1ba10f8a11aeaa9aa5ca55dc3339046df3f1b1315ab"},
-    {file = "kestrel_native-0.1.8-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:7601b7e9010badc1a574881eb8e8aead80098e239a5ccc2dbd1c04aa6c4adee5"},
-    {file = "kestrel_native-0.1.8-cp310-cp310-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:52c529f55992e6e7da3b6da3efea37c74beb2c5194bd2508099397052c7c4124"},
-    {file = "kestrel_native-0.1.8-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:fe106208f9be56087250a8a501f0555c41298861ac266c0d708f512096742834"},
-    {file = "kestrel_native-0.1.8-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:3c9bfc4586b952b5d11163ac51e818d73b0293dd43991eb9bad1e2286d6c9dd5"},
-    {file = "kestrel_native-0.1.8-cp310-cp310-win_amd64.whl", hash = "sha256:d07ca8d77977a290b5ae59cc0dcfed9052f250205601702e91a770074a44ebce"},
-    {file = "kestrel_native-0.1.8-cp311-cp311-macosx_10_12_x86_64.whl", hash = "sha256:452558a6bda204e8adbd67376ecdd01924454d17bddb7fe3b33c83f52cbdd329"},
-    {file = "kestrel_native-0.1.8-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:8060c503189251fb6fce426a106704f0ee8d19c62ccda93a5f07f90f2825c806"},
-    {file = "kestrel_native-0.1.8-cp311-cp311-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:9b111df26b985068bbcacc0388937f5e2636873394f45c26f3d91bcab9f5aeed"},
-    {file = "kestrel_native-0.1.8-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:43f80ac7f5f394779879c12f2008613c3d2f6f88614c7739bceecad9a66930c3"},
-    {file = "kestrel_native-0.1.8-cp311-cp311-manylinux_2_28_aarch64.whl", hash = "sha256:9d1ea8cd154a1c161e365f21774a8c63cd35a68baf92e5308979fc046811b1cd"},
-    {file = "kestrel_native-0.1.8-cp311-cp311-win_amd64.whl", hash = "sha256:b44df25ea1c1677302142467980376f1b2f99e7eeb9476bfe54ab9d9923bfb00"},
-    {file = "kestrel_native-0.1.8-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:682c3a42c39406de6d9aa6135932e5448e927c770e2e48200a64a595afdd506f"},
-    {file = "kestrel_native-0.1.8-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:d6278264c0c39f67689ad68a493a0da6cbb3ed6b5917cd4d812b9ac30ca539f7"},
-    {file = "kestrel_native-0.1.8-cp312-cp312-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:9b145e8b36d90189cf5ee58344cc70a524d41f2dd89cebe0a6c1b4d140344cbb"},
-    {file = "kestrel_native-0.1.8-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:aa065e659bce0d3cb5989c987793eebdc494c025c20309398b7fec9f8ad3f4ea"},
-    {file = "kestrel_native-0.1.8-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:05fef25e9bee54e6e8ac26e34cd23bcf7162727efe02b7360ece9fb93e44ec3f"},
-    {file = "kestrel_native-0.1.8-cp312-cp312-win_amd64.whl", hash = "sha256:485d422bee9829b951469106877b6ba83accef6e3a76c0eb305c6187d6480171"},
-    {file = "kestrel_native-0.1.8-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:12476404aee5158ed96ab870c5bfa918486404ac5229c21593398c0109eafff3"},
-    {file = "kestrel_native-0.1.8-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:8d400bb238a140a37a98d2d89d80ecf5444f9d96c3fb9ce7de46d92c5fd21917"},
-    {file = "kestrel_native-0.1.8-cp313-cp313-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:0c9bdc439f813534de08703700f0d7d6695a5bb4700e350c6253b2798433775d"},
-    {file = "kestrel_native-0.1.8-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:71a3e8fc0f99af0977b9eb0fa9b1cdedf672019fbdced4b102bc48e9524f113d"},
-    {file = "kestrel_native-0.1.8-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:457a91a346d14a0ec5f0c20164d5119a94e90f4cb3e6e077230b131a441f49de"},
-    {file = "kestrel_native-0.1.8-cp313-cp313-win_amd64.whl", hash = "sha256:fe79a47335c1078ccc7725a9a2584d523753498b81cd759f14e98f151fc0147a"},
-    {file = "kestrel_native-0.1.8-cp314-cp314-macosx_10_12_x86_64.whl", hash = "sha256:41be2be0ef542a8879abe9cd5feab2d0a534c3c30debbebfecfa3a9387489d78"},
-    {file = "kestrel_native-0.1.8-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:83eb18bde43cdde058b18d6a8834be6292ef0c781aa8e7c29d8c7662959e1773"},
-    {file = "kestrel_native-0.1.8-cp314-cp314-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:9dfa1a929f0b387544324df59bea50700230c1e50c1639dc12f71451e92fe30b"},
-    {file = "kestrel_native-0.1.8-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:15da40fef6e659fd6ebbc02c3f6a54f17f7b4f50c392e7e72e3d7be06bac6326"},
-    {file = "kestrel_native-0.1.8-cp314-cp314-manylinux_2_28_aarch64.whl", hash = "sha256:4125e79436579ca796aa8776cabd623e77e60908675723f870a3362d37e38205"},
-    {file = "kestrel_native-0.1.8-cp314-cp314-win_amd64.whl", hash = "sha256:ed0fb8aa975a640386751665410c6f3e9aeac518cce3524e02ac083927b69170"},
+    {file = "kestrel_native-0.1.9-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:0e9c19aca1b032091c59ec99107b57c612e7e15f0b78d1f2227e8d1a6cac57eb"},
+    {file = "kestrel_native-0.1.9-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:35292db3c1f9e5921fbbaef1271a888983d99009c67fa2be1c1eac8dc6a4242d"},
+    {file = "kestrel_native-0.1.9-cp310-cp310-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:fbaa84f9248f068c572098f0d365f42250924764192e3c15859c7013a990078a"},
+    {file = "kestrel_native-0.1.9-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b6e3000e26881c7047a01f18a192d4a5e298b41d443dfc8a3a604bbb6cf71e1e"},
+    {file = "kestrel_native-0.1.9-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:6c98806806893857e0b1672bcb71d1d7c85fae1a9bb383b0445bc1c68ef9a43d"},
+    {file = "kestrel_native-0.1.9-cp310-cp310-win_amd64.whl", hash = "sha256:e5a87f5f851b84c29377c47ff56691a9db5fcf5e24bd6f96720835e05c060022"},
+    {file = "kestrel_native-0.1.9-cp311-cp311-macosx_10_12_x86_64.whl", hash = "sha256:0f171480a530bd42a0e5d9395d61da736b3cb1f60dfb988ff2ac0735a347ae44"},
+    {file = "kestrel_native-0.1.9-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:93c67a9fa55e2d833d7b4d46065b1a88021bbd2f302cddc4d1304e326b1fa397"},
+    {file = "kestrel_native-0.1.9-cp311-cp311-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:e0b27d6381f2efb58bb680b395aef2881e0813d33e5e1689ab21bc73e88def6c"},
+    {file = "kestrel_native-0.1.9-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:27054a10b9bb949de4bf468cd22255a657e1ff704873802bb4937605015ca0ec"},
+    {file = "kestrel_native-0.1.9-cp311-cp311-manylinux_2_28_aarch64.whl", hash = "sha256:d8cf3e2d9be3e2f1e0b2037d522f3dfa5c8ada4155f60bb5478f23e0f4a32952"},
+    {file = "kestrel_native-0.1.9-cp311-cp311-win_amd64.whl", hash = "sha256:c4056882e5c34714c237a1dd59872511cc83f15b799488f8c54b4bd6850f9180"},
+    {file = "kestrel_native-0.1.9-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:5c7863bd390f4ab92db85df29f1fc9abf98d80702bb4417794b5e5a268bbb578"},
+    {file = "kestrel_native-0.1.9-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:eaf1623985991e1390f15ca7364072129a8ce68691d3dcaf3cbd07b60897bb57"},
+    {file = "kestrel_native-0.1.9-cp312-cp312-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:b7b8e6a3fd738d5ce81e158d68ea1403180f78677a700933b53e420f9f6b9c5e"},
+    {file = "kestrel_native-0.1.9-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e4a6afcc766dce4db124166e1af6a322c53598ef4eea7a24d3c72583ff3e0124"},
+    {file = "kestrel_native-0.1.9-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:c2c42e2f0d5c18e6aff0f06d4914b8fd888bbc72b43b808653bb16a8ba9828ce"},
+    {file = "kestrel_native-0.1.9-cp312-cp312-win_amd64.whl", hash = "sha256:a330cce8725869f39d1522407aa01e9751c3cc968035e8ccdb95141ab31c838a"},
+    {file = "kestrel_native-0.1.9-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:dd295dc528724aee5be7ed53b42931b3a1dfe20635f7744a368c60ea81442ff3"},
+    {file = "kestrel_native-0.1.9-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:1c1b96302eb8aceecf0edbbc86186734350a46cdbb247a8db17b539416e37e10"},
+    {file = "kestrel_native-0.1.9-cp313-cp313-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:373ad65f15e332eb45b6fee632b0695e11d55407c39240fd352b3f3180537dc2"},
+    {file = "kestrel_native-0.1.9-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:2289d07e2721c3477e35a53b8525f132a7e119cddb5af703ad02b10832996356"},
+    {file = "kestrel_native-0.1.9-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:1b180ac8c64f16ba44d8898358efe4809e80e4e1e1894e48fcd4f0c4548eef30"},
+    {file = "kestrel_native-0.1.9-cp313-cp313-win_amd64.whl", hash = "sha256:14f1d72c7c188eac48f54d154e7c717a05731cc65a110ee7d15cced617e9e4c8"},
+    {file = "kestrel_native-0.1.9-cp314-cp314-macosx_10_12_x86_64.whl", hash = "sha256:9db8aad3977bd7c0dd56e96953f85a3bf3282cadf2b9f2eaa4fe7089964997a8"},
+    {file = "kestrel_native-0.1.9-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:ef895e1687b2251921cc66ba4155fab9c5e0f67d02e1c31f1d1cfdde6e089769"},
+    {file = "kestrel_native-0.1.9-cp314-cp314-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:d8b0265dd96ff7c09b506a6e136394f17ffb369a2b096c39d51bc9f6d47eb923"},
+    {file = "kestrel_native-0.1.9-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1ca1f862c925dbd9f490fef130313b9cdf930addd8f1fc558a0ab0e505da8704"},
+    {file = "kestrel_native-0.1.9-cp314-cp314-manylinux_2_28_aarch64.whl", hash = "sha256:c8f2112b6eb1fb6beea2634d8210c84fe79f51829c5e4d255a6d88c5d840ca05"},
+    {file = "kestrel_native-0.1.9-cp314-cp314-win_amd64.whl", hash = "sha256:3f647164e8ff526dde1d9c743c236312c663bac23d77067f6ace8eee448ae0e1"},
 ]
 
 [package.dependencies]
@@ -1669,4 +1670,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.15"
-content-hash = "adab265af86661a584d315c85954809e51cb256a672e353cde01802a5641a2d2"
+content-hash = "50834bb4704d86e6583e1f574d7b985ab32a5fc068d7747aac4e13440507f6ce"

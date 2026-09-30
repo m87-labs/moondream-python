@@ -12,6 +12,7 @@ Photon exposes each selected model's capabilities through one model-bound client
 | `query` | Ask questions about image content |
 | `chat` | Continue multi-turn conversations with text and images |
 | `detect` | Find bounding boxes around objects in images |
+| `embed` | Extract image embeddings with a compatible Photon model |
 | `point` | Identify the center location of specified objects |
 | `segment` | Generate an SVG path segmentation mask for objects |
 | `transcribe` | Transcribe or translate audio, including files and live PCM streams |
@@ -34,6 +35,8 @@ Photon includes these local model families:
 | Parakeet TDT | 0.6B v3 transcription; [parakeet-redux](https://huggingface.co/moondream/parakeet-redux), its ternary version for CPUs, Apple silicon, and CUDA; [parakeet-ultra](https://huggingface.co/moondream/parakeet-ultra), the full-precision version trained further, for GPUs |
 | Qwen3-TTS | CustomVoice 0.6B and 1.7B text-to-speech on CUDA |
 | Kokoro | 82M phoneme-to-speech on CPU or CUDA |
+| DINOv2 | Small image embeddings on H100 |
+| RF-DETR | Nano, Small, Medium, Base, Large, XLarge, and 2XLarge detection on H100 |
 
 Use `md.photon_models()` to inspect the exact registered identifiers in the installed
 release. The returned client reports `model_id`, `tasks`, and
@@ -197,19 +200,50 @@ for chunk in model.chat(
 
 ---
 
-#### `detect(image, object)`
+#### `detect(image, object=None, settings=None, *, threshold=None, max_objects=None)`
 
-Detect specific objects in an image.
+Detect objects in an image. Moondream requires an object prompt; Photon models
+with a fixed vocabulary, such as RF-DETR, accept the image alone. Cloud detection
+continues to require `object`.
 
 **Parameters:**
 - `image` — `Image.Image` or `EncodedImage`
-- `object` — `str`
+- `object` — object description for Moondream; omit for RF-DETR
+- `settings` — optional Moondream generation settings
+- `threshold` — Photon detector score threshold; RF-DETR defaults to `0.5`
+- `max_objects` — Photon detector result limit; RF-DETR defaults to `300`
 
-**Returns:** `DetectOutput` — `{"objects": List[Region]}`
+**Returns:** `DetectOutput` — `{"objects": List[DetectedRegion]}`. Boxes use
+normalized `x_min`, `y_min`, `x_max`, and `y_max` coordinates. RF-DETR also returns
+`score`, `class_id`, and `label` for each detection from its fixed COCO vocabulary.
+Only options supplied by the caller are forwarded; the selected model validates
+which options it supports. Image-only Photon detection forwards PIL images
+directly, without a lossy JPEG conversion.
 
 ```python
 objects = model.detect(image, "car")["objects"]
+
+with md.photon("rfdetr-nano", device="cuda") as detector:
+    objects = detector.detect(image, threshold=0.6, max_objects=20)["objects"]
 ```
+
+---
+
+#### `embed(image)` (Photon)
+
+Extract image embeddings from an embedding-capable model. Accepts a PIL image or
+an `EncodedImage`, and returns the model's output dictionary without converting
+its tensors to Python lists or moving them to the CPU.
+
+```python
+with md.photon("dinov2-small", device="cuda") as encoder:
+    features = encoder.embed(image)
+    cls_embedding = features["pooler_output"]       # [1, 384]
+    token_embeddings = features["last_hidden_state"]  # [1, 257, 384]
+```
+
+DINOv2 returns FP32 tensors on the model's device. The returned tensors remain
+valid after the client closes.
 
 ---
 
