@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.1
+
+- Photon automatically uses generated DFlash verification for supported B200
+  configurations, without requiring `decode_path="generated"`.
+- Updated the local inference engine to `kestrel 0.9.1`.
+
 ## 2.6.0
 
 - Photon now supports Qwen3.8-27B, including BF16 and FP8 checkpoints and

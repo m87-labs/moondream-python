@@ -412,14 +412,14 @@ i18n = ["Babel (>=2.7)"]
 
 [[package]]
 name = "kestrel"
-version = "0.9.0"
+version = "0.9.1"
 description = "A fast, efficient inference engine for multimodal models"
 optional = false
 python-versions = "<3.15,>=3.10"
 groups = ["main"]
 files = [
-    {file = "kestrel-0.9.0-py3-none-any.whl", hash = "sha256:599750cdd38426990f5eb57016405b1a5e46ed1ebe13d427ec1065a5b731d440"},
-    {file = "kestrel-0.9.0.tar.gz", hash = "sha256:96b06e529825023946cfda7b5e0901365acb4924c5e3b5878bf75f322a8b3367"},
+    {file = "kestrel-0.9.1-py3-none-any.whl", hash = "sha256:80640639279b18b2da61b08c06c550f8eaab6596d6d15978fd56f76707462cb7"},
+    {file = "kestrel-0.9.1.tar.gz", hash = "sha256:52083e88c71ccd6023096714033403d73a7cfb7a83b72493509bfb09163f344a"},
 ]
 
 [package.dependencies]
@@ -1669,4 +1669,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.15"
-content-hash = "e4b3376271c960e66466e097b9cdbc837d356ada0c8182f6111df70c9ae3c99d"
+content-hash = "adab265af86661a584d315c85954809e51cb256a672e353cde01802a5641a2d2"
