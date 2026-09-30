@@ -80,7 +80,15 @@ ChatOutput = TypedDict(
 Region = TypedDict(
     "Region", {"x_min": float, "y_min": float, "x_max": float, "y_max": float}
 )
-DetectOutput = TypedDict("DetectOutput", {"objects": List[Region]})
+
+
+class DetectedRegion(Region, total=False):
+    score: float
+    class_id: int
+    label: str
+
+
+DetectOutput = TypedDict("DetectOutput", {"objects": List[DetectedRegion]})
 
 Point = TypedDict("Point", {"x": float, "y": float})
 PointOutput = TypedDict("PointOutput", {"points": List[Point]})

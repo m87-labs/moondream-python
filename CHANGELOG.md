@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Added Photon image embeddings through `embed`, including DINOv2 Small.
+- Added image-only detection and `threshold` / `max_objects` options for RF-DETR,
+  while preserving Moondream's `detect(image, object, settings)` calls.
+- Updated the local inference engine to `kestrel 0.9.2`.
+
 ## 2.6.1
 
 - Photon automatically uses generated DFlash verification for supported B200

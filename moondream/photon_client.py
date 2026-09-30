@@ -811,18 +811,33 @@ class PhotonClient(VLM):
     def detect(
         self,
         image: Union[Image.Image, EncodedImage],
-        object: str,
+        object: Optional[str] = None,
         settings: Optional[SamplingSettings] = None,
+        *,
+        threshold: Optional[float] = None,
+        max_objects: Optional[int] = None,
     ) -> DetectOutput:
-        image_bytes = _image_to_bytes(image)
-        result = self._run(
-            self._model.detect(
-                image=image_bytes,
-                object=object,
-                settings=self._settings(settings),
-            )
-        )
-        return {"objects": result.output["objects"]}
+        """Detect objects using the selected model's supported options.
+
+        Moondream uses ``object`` and generation ``settings``. Fixed-vocabulary
+        detectors accept an image alone, with optional ``threshold`` and
+        ``max_objects``. Unsupported options are validated by the model.
+        """
+        prompt: dict[str, Any] = {"image": _image_to_bytes(image)}
+        if object is not None:
+            prompt["object"] = object
+        if settings is not None:
+            prompt["settings"] = dict(settings)
+        if threshold is not None:
+            prompt["threshold"] = threshold
+        if max_objects is not None:
+            prompt["max_objects"] = max_objects
+        return self.invoke("detect", **prompt)
+
+    def embed(self, image: Union[Image.Image, EncodedImage]) -> dict[str, Any]:
+        """Return the model's image embeddings, preserving its output tensors."""
+        image_input = _image_to_bytes(image) if isinstance(image, EncodedImage) else image
+        return self.invoke("embed", image=image_input)
 
     def point(
         self,
