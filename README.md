@@ -217,7 +217,8 @@ continues to require `object`.
 normalized `x_min`, `y_min`, `x_max`, and `y_max` coordinates. RF-DETR also returns
 `score`, `class_id`, and `label` for each detection from its fixed COCO vocabulary.
 Only options supplied by the caller are forwarded; the selected model validates
-which options it supports.
+which options it supports. Image-only Photon detection forwards PIL images
+directly, without a lossy JPEG conversion.
 
 ```python
 objects = model.detect(image, "car")["objects"]

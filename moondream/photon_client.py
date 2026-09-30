@@ -823,7 +823,12 @@ class PhotonClient(VLM):
         detectors accept an image alone, with optional ``threshold`` and
         ``max_objects``. Unsupported options are validated by the model.
         """
-        prompt: dict[str, Any] = {"image": _image_to_bytes(image)}
+        image_input = (
+            _image_to_bytes(image)
+            if object is not None or isinstance(image, EncodedImage)
+            else image
+        )
+        prompt: dict[str, Any] = {"image": image_input}
         if object is not None:
             prompt["object"] = object
         if settings is not None:

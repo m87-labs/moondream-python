@@ -59,15 +59,30 @@ def test_embed_preserves_pil_images_without_a_lossy_round_trip():
 
 
 def test_detect_image_only_omits_object_and_settings_and_preserves_labels():
+    source = Image.new("RGB", (8, 8))
     objects = [{"x_min": 0.1, "y_min": 0.2, "x_max": 0.3, "y_max": 0.4,
                 "score": 0.9, "class_id": 1, "label": "person"}]
 
     class Model(VisionModel):
         async def detect(self, *, image):
-            assert isinstance(image, bytes)
+            assert image is source
             return SimpleNamespace(output={"objects": objects})
 
-    assert client_for(Model()).detect(Image.new("RGB", (8, 8))) == {"objects": objects}
+    assert client_for(Model()).detect(source) == {"objects": objects}
+
+
+def test_detect_image_only_decodes_encoded_images_without_reencoding():
+    source_bytes = b"encoded image"
+    source = Base64EncodedImage(
+        image_url="data:image/png;base64," + base64.b64encode(source_bytes).decode()
+    )
+
+    class Model(VisionModel):
+        async def detect(self, *, image):
+            assert image == source_bytes
+            return SimpleNamespace(output={"objects": []})
+
+    assert client_for(Model()).detect(source) == {"objects": []}
 
 
 def test_detect_forwards_threshold_zero_and_result_limit_as_top_level_options():
@@ -89,6 +104,7 @@ def test_detect_preserves_positional_object_settings_and_adapter(adapter):
 
     class Model(VisionModel):
         async def detect(self, *, image, object, settings):
+            assert isinstance(image, bytes) and image.startswith(b"\xff\xd8")
             assert object == "car"
             assert settings["max_objects"] == 7
             assert settings.get("adapter") == adapter
